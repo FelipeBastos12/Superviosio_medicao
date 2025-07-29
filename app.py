@@ -39,12 +39,6 @@ def visor(valor, label, cor_fundo, cor_texto):
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Supervisório LAT", layout="wide")
-# st.title("🔌 Supervisório LAT - Visual Dinâmico")
-
-# --- VERIFICA SE O ARQUIVO EXISTE ---
-if not os.path.exists(CSV_PATH):
-    st.error("Arquivo CSV não encontrado.")
-    st.stop()
 
 # --- CARREGA OS DADOS ---
 df = load_and_clean_csv(CSV_PATH)
@@ -58,8 +52,8 @@ count = st_autorefresh(interval=REFRESH_INTERVAL_MS, limit=None, key="auto_refre
 
 # --- LÊ A LINHA ATUAL ---
 if st.session_state.index >= len(df):
-    st.success("Simulação concluída.")
-    st.stop()
+    st.session_state.index = 0  # Reinicia a leitura
+    st.success("Reiniciando a leitura dos dados.")
 
 row = df.iloc[st.session_state.index]
 st.session_state.index += 1
@@ -68,6 +62,12 @@ st.session_state.index += 1
 tensao = row.get("Tensao_Fase_ A", None)
 frequencia = row.get("Frequencia_Fase_A", None)
 corrente = row.get("Corrente_Fase_A", None)
+
+# --- SUBSTITUI VALORES ZERO NA CORRENTE PELO VALOR ANTERIOR ---
+if corrente == 0:
+    corrente = st.session_state.get("corrente_anterior", corrente)
+else:
+    st.session_state["corrente_anterior"] = corrente
 
 # --- EXIBE OS VISUAIS ---
 col1, col2, col3 = st.columns(3)
