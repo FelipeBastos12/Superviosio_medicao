@@ -5,7 +5,7 @@ import os
 from streamlit_autorefresh import st_autorefresh
 
 # --- CONFIGURAÇÕES ---
-CSV_PATH = r"C:\Users\Usuário\Downloads\Ecg_serial\Planilha_242_LAT - FASEA.csv"
+CSV_PATH = "Planilha_242_LAT - FASEA.csv"
 REFRESH_INTERVAL_MS = 500  # milissegundos para o st_autorefresh
 
 # --- LEITURA E LIMPEZA DO CSV ---
