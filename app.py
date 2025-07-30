@@ -13,15 +13,9 @@ st.markdown("<h1 style='text-align: center;'>Analisador Elétrico - Fase A</h1>"
 def load_data():
     # Carregar o CSV
     df = pd.read_csv("Planilha_242_LAT - FASEA.csv", sep=",", decimal=",")
-
+    
     # Exibe os nomes das colunas para depuração
     st.write("Nomes das colunas:", df.columns)
-
-    # Corrige os nomes das colunas removendo espaços extras e caracteres invisíveis
-    df.columns = df.columns.str.replace(' ', '_').str.strip()
-
-    # Exibe os nomes das colunas após a correção para verificar
-    st.write("Nomes das colunas corrigidos:", df.columns)
     
     # Criar a coluna DataHora unindo 'Data' e 'Horário'
     df['DataHora'] = pd.to_datetime(df['Data'] + " " + df['Horário'], dayfirst=True)
