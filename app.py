@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objs as go
-import os
 from streamlit_autorefresh import st_autorefresh
 
 # --- CONFIGURAÇÕES ---
@@ -13,11 +12,11 @@ REFRESH_INTERVAL_MS = 500  # milissegundos para o st_autorefresh
 def load_and_clean_csv(path):
     df = pd.read_csv(path)
     for col in df.columns:
-        df[col] = df[col].astype(str).str.replace(",", ".", regex=False)
+        df[col] = df[col].astype(str).str.replace(",", ".", regex=False)  # Corrige a vírgula para ponto
         try:
-            df[col] = df[col].astype(float)
+            df[col] = df[col].astype(float)  # Tenta converter para float
         except ValueError:
-            pass
+            pass  # Se não for possível, deixa como string
     return df
 
 # --- ESTILOS ---
@@ -74,20 +73,20 @@ col1, col2, col3 = st.columns(3)
 
 with col1:
     if tensao is not None:
-        tensao_valor = float(tensao)
+        tensao_valor = float(tensao)  # Conversão da tensão para float
         cor_fundo = "#c0392b" if tensao_valor < 210 else "#2c3e50"
         cor_texto = "#ffffff" if tensao_valor < 210 else "#2ecc71"
-        visor(f"{tensao_valor:.1f} V", "V", cor_fundo, cor_texto)
+        visor(f"{tensao_valor:.1f} V", "Tensão", cor_fundo, cor_texto)
 
 with col2:
     if frequencia is not None:
         freq_valor = float(frequencia)
-        visor(f"{freq_valor:.1f} Hz", "F", "#2c3e50", "#2ecc71")
+        visor(f"{freq_valor:.1f} Hz", "Frequência", "#2c3e50", "#2ecc71")
 
 with col3:
     if corrente is not None:
         corrente_valor = float(corrente)
-        visor(f"{corrente_valor:.1f} A", "I", "#2c3e50", "#2ecc71")
+        visor(f"{corrente_valor:.1f} A", "Corrente", "#2c3e50", "#2ecc71")
 
 # --- PLOT DA TENSÃO ---
 if "tensoes" not in st.session_state:
