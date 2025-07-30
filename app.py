@@ -73,77 +73,82 @@ if corrente == 0:
 else:
     st.session_state["corrente_anterior"] = corrente
 
-# --- EXIBE OS VISUAIS ---
-col1, col2, col3 = st.columns(3)
+# --- CRIA ABA PARA SELEÇÃO DE PÁGINAS ---
+aba = st.radio("Escolha a seção", ("Medição", "Gráficos"))
 
-with col1:
+if aba == "Medição":
+    # --- EXIBE OS VISUAIS DE MEDIÇÃO ---
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        if tensao is not None:
+            tensao_valor = float(tensao)  # Conversão da tensão para float
+            cor_fundo = "#c0392b" if tensao_valor < 210 else "#2c3e50"
+            cor_texto = "#ffffff" if tensao_valor < 210 else "#2ecc71"
+            visor(f"{tensao_valor:.1f} V", "Tensão", cor_fundo, cor_texto)
+
+    with col2:
+        if frequencia is not None:
+            freq_valor = float(frequencia)
+            visor(f"{freq_valor:.1f} Hz", "Frequência", "#2c3e50", "#2ecc71")
+
+    with col3:
+        if corrente is not None:
+            corrente_valor = float(corrente)
+            visor(f"{corrente_valor:.1f} A", "Corrente", "#2c3e50", "#2ecc71")
+
+    # --- EXIBE MAIS INFORMAÇÕES EM CARDS ESTILIZADOS ---
+    col4, col5, col6 = st.columns(3)
+
+    with col4:
+        if tensao_linha_ab is not None:
+            tensao_linha_ab_valor = float(tensao_linha_ab)
+            visor(f"{tensao_linha_ab_valor:.2f} V", "Tensão Linha AB", "#2c3e50", "#2ecc71")
+
+    with col5:
+        if potencia_ativa is not None:
+            potencia_ativa_valor = float(potencia_ativa)
+            visor(f"{potencia_ativa_valor:.2f} W", "Potência Ativa", "#2c3e50", "#2ecc71")
+
+    with col6:
+        if potencia_reativa is not None:
+            potencia_reativa_valor = float(potencia_reativa)
+            visor(f"{potencia_reativa_valor:.2f} VAr", "Potência Reativa", "#2c3e50", "#2ecc71")
+
+    # --- EXIBE ENERGIA APARENTE E FATOR DE POTÊNCIA EM OUTRA COLUNA ---
+    col7, col8 = st.columns(2)
+
+    with col7:
+        if potencia_aparente is not None:
+            potencia_aparente_valor = float(potencia_aparente)
+            visor(f"{potencia_aparente_valor:.2f} VA", "Potência Aparente", "#2c3e50", "#2ecc71")
+
+    with col8:
+        if fator_potencia is not None:
+            fator_potencia_valor = float(fator_potencia)
+            visor(f"{fator_potencia_valor:.2f}", "Fator de Potência", "#2c3e50", "#2ecc71")
+
+elif aba == "Gráficos":
+    # --- PLOT DA TENSÃO ---
+    if "tensoes" not in st.session_state:
+        st.session_state.tensoes = []
+
     if tensao is not None:
-        tensao_valor = float(tensao)  # Conversão da tensão para float
-        cor_fundo = "#c0392b" if tensao_valor < 210 else "#2c3e50"
-        cor_texto = "#ffffff" if tensao_valor < 210 else "#2ecc71"
-        visor(f"{tensao_valor:.1f} V", "Tensão", cor_fundo, cor_texto)
+        st.session_state.tensoes.append(float(tensao))
+        st.session_state.tensoes = st.session_state.tensoes[-50:]  # Janela deslizante
 
-with col2:
-    if frequencia is not None:
-        freq_valor = float(frequencia)
-        visor(f"{freq_valor:.1f} Hz", "Frequência", "#2c3e50", "#2ecc71")
-
-with col3:
-    if corrente is not None:
-        corrente_valor = float(corrente)
-        visor(f"{corrente_valor:.1f} A", "Corrente", "#2c3e50", "#2ecc71")
-
-# --- EXIBE MAIS INFORMAÇÕES EM CARDS ESTILIZADOS ---
-col4, col5, col6 = st.columns(3)
-
-with col4:
-    if tensao_linha_ab is not None:
-        tensao_linha_ab_valor = float(tensao_linha_ab)
-        visor(f"{tensao_linha_ab_valor:.2f} V", "Tensão Linha AB", "#2c3e50", "#2ecc71")
-
-with col5:
-    if potencia_ativa is not None:
-        potencia_ativa_valor = float(potencia_ativa)
-        visor(f"{potencia_ativa_valor:.2f} W", "Potência Ativa", "#2c3e50", "#2ecc71")
-
-with col6:
-    if potencia_reativa is not None:
-        potencia_reativa_valor = float(potencia_reativa)
-        visor(f"{potencia_reativa_valor:.2f} VAr", "Potência Reativa", "#2c3e50", "#2ecc71")
-
-# --- EXIBE ENERGIA APARENTE E FATOR DE POTÊNCIA EM OUTRA COLUNA ---
-col7, col8 = st.columns(2)
-
-with col7:
-    if potencia_aparente is not None:
-        potencia_aparente_valor = float(potencia_aparente)
-        visor(f"{potencia_aparente_valor:.2f} VA", "Potência Aparente", "#2c3e50", "#2ecc71")
-
-with col8:
-    if fator_potencia is not None:
-        fator_potencia_valor = float(fator_potencia)
-        visor(f"{fator_potencia_valor:.2f}", "Fator de Potência", "#2c3e50", "#2ecc71")
-
-# --- PLOT DA TENSÃO ---
-if "tensoes" not in st.session_state:
-    st.session_state.tensoes = []
-
-if tensao is not None:
-    st.session_state.tensoes.append(float(tensao))
-    st.session_state.tensoes = st.session_state.tensoes[-50:]  # Janela deslizante
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        y=st.session_state.tensoes,
-        mode='lines+markers',
-        line=dict(color="#2980b9", width=2),
-        name="Tensão"
-    ))
-    fig.update_layout(
-        title="Tensão Fase A (V)",
-        xaxis_title="Amostras",
-        yaxis_title="Tensão (V)",
-        height=400,
-        template="simple_white"
-    )
-    st.plotly_chart(fig, use_container_width=True)
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            y=st.session_state.tensoes,
+            mode='lines+markers',
+            line=dict(color="#2980b9", width=2),
+            name="Tensão"
+        ))
+        fig.update_layout(
+            title="Tensão Fase A (V)",
+            xaxis_title="Amostras",
+            yaxis_title="Tensão (V)",
+            height=400,
+            template="simple_white"
+        )
+        st.plotly_chart(fig, use_container_width=True)
