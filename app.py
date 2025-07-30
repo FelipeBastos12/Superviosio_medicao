@@ -61,10 +61,9 @@ st.session_state.index += 1
 tensao = row.get("Tensao_Fase_ A", None)
 frequencia = row.get("Frequencia_Fase_A", None)
 corrente = row.get("Corrente_Fase_A", None)
-energia_aparente = row.get("Potencia_Aparente_Fase_A", None)
-energia_ativa = row.get("Potencia_Ativa_Fase_A", None)
-energia_reativa = row.get("Potencia_Reativa_Fase_A", None)
-fator_potencia = row.get("fator_De_Potencia_Fase_A", None)
+
+# --- VERIFICAR SE A TENSÃO ESTÁ CORRETA ---
+st.write(f"Tensão lida: {tensao}")  # Exibe a tensão para depuração
 
 # --- SUBSTITUI VALORES ZERO NA CORRENTE PELO VALOR ANTERIOR ---
 if corrente == 0:
@@ -77,10 +76,13 @@ col1, col2, col3 = st.columns(3)
 
 with col1:
     if tensao is not None:
-        tensao_valor = float(tensao)
-        cor_fundo = "#c0392b" if tensao_valor < 210 else "#2c3e50"
-        cor_texto = "#ffffff" if tensao_valor < 210 else "#2ecc71"
-        visor(f"{tensao_valor:.1f} V", "Tensão", cor_fundo, cor_texto)
+        try:
+            tensao_valor = float(tensao)  # Conversão da tensão para float
+            cor_fundo = "#c0392b" if tensao_valor < 210 else "#2c3e50"
+            cor_texto = "#ffffff" if tensao_valor < 210 else "#2ecc71"
+            visor(f"{tensao_valor:.1f} V", "Tensão", cor_fundo, cor_texto)
+        except ValueError:
+            st.error("Erro ao converter a Tensão para número.")  # Caso ocorra erro
 
 with col2:
     if frequencia is not None:
@@ -92,53 +94,29 @@ with col3:
         corrente_valor = float(corrente)
         visor(f"{corrente_valor:.1f} A", "Corrente", "#2c3e50", "#2ecc71")
 
-# --- EXIBE MAIS INFORMAÇÕES EM CARDS ESTILIZADOS ---
-col4, col5, col6 = st.columns(3)
-
-with col4:
-    if energia_aparente is not None:
-        energia_aparente_valor = float(energia_aparente)
-        visor(f"{energia_aparente_valor:.2f} VA", "Energia Aparente", "#2c3e50", "#2ecc71")
-
-with col5:
-    if energia_ativa is not None:
-        energia_ativa_valor = float(energia_ativa)
-        visor(f"{energia_ativa_valor:.2f} W", "Energia Ativa", "#2c3e50", "#2ecc71")
-
-with col6:
-    if energia_reativa is not None:
-        energia_reativa_valor = float(energia_reativa)
-        visor(f"{energia_reativa_valor:.2f} VAr", "Energia Reativa", "#2c3e50", "#2ecc71")
-
-# --- EXIBIÇÃO DO FATOR DE POTÊNCIA ---
-# Criar uma coluna para o Fator de Potência
-col_fator = st.columns(1)  # Criando uma única coluna para o fator de potência
-
-with col_fator[0]:
-    if fator_potencia is not None:
-        fator_potencia_valor = float(fator_potencia)
-        visor(f"{fator_potencia_valor:.2f}", "Fator de Potência", "#2c3e50", "#2ecc71")
-
 # --- PLOT DA TENSÃO ---
 if "tensoes" not in st.session_state:
     st.session_state.tensoes = []
 
 if tensao is not None:
-    st.session_state.tensoes.append(float(tensao))
-    st.session_state.tensoes = st.session_state.tensoes[-50:]  # Janela deslizante
+    try:
+        st.session_state.tensoes.append(float(tensao))
+        st.session_state.tensoes = st.session_state.tensoes[-50:]  # Janela deslizante
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        y=st.session_state.tensoes,
-        mode='lines+markers',
-        line=dict(color="#2980b9", width=2),
-        name="Tensão"
-    ))
-    fig.update_layout(
-        title="Tensão Fase A (V)",
-        xaxis_title="Amostras",
-        yaxis_title="Tensão (V)",
-        height=400,
-        template="simple_white"
-    )
-    st.plotly_chart(fig, use_container_width=True)
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            y=st.session_state.tensoes,
+            mode='lines+markers',
+            line=dict(color="#2980b9", width=2),
+            name="Tensão"
+        ))
+        fig.update_layout(
+            title="Tensão Fase A (V)",
+            xaxis_title="Amostras",
+            yaxis_title="Tensão (V)",
+            height=400,
+            template="simple_white"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    except ValueError:
+        st.error("Erro ao adicionar a tensão ao gráfico.")
