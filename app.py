@@ -1,4 +1,4 @@
-@st.cache_data
+
 def load_data():
     df = pd.read_csv("Planilha_242_LAT - FASEA.csv", sep=",", decimal=",")
     
