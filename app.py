@@ -11,10 +11,12 @@ st.markdown("<h1 style='text-align: center;'>Analisador Elétrico - Fase A</h1>"
 # Carregar CSV com separador decimal vírgula
 @st.cache_data
 def load_data():
-    # Carregar o CSV
     df = pd.read_csv("Planilha_242_LAT - FASEA.csv", sep=",", decimal=",")
     
-    # Corrigir nomes de colunas removendo espaços extras
+    # Exibe os nomes das colunas para debug
+    st.write("Nomes das colunas:", df.columns)
+    
+    # Corrige os nomes das colunas removendo espaços extras
     df.columns = df.columns.str.strip()
 
     # Criar a coluna DataHora unindo 'Data' e 'Horário'
