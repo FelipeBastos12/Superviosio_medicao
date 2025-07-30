@@ -10,7 +10,7 @@ st.markdown("<h1 style='text-align: center;'>Analisador Elétrico - Fase A</h1>"
 # Carregar CSV com separador decimal vírgula
 @st.cache_data
 def load_data():
-    df = pd.read_csv("Planilha_242_LAT.csv", sep=",", decimal=",")
+    df = pd.read_csv("Planilha_242_LAT - FASEA.csv", sep=",", decimal=",")
     df['DataHora'] = pd.to_datetime(df['Data'] + " " + df['Horário'], dayfirst=True)
     df.sort_values('DataHora', inplace=True)
     return df
