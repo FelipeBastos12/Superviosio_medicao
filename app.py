@@ -111,9 +111,10 @@ with col6:
         visor(f"{energia_reativa_valor:.2f} VAr", "Energia Reativa", "#2c3e50", "#2ecc71")
 
 # --- EXIBIÇÃO DO FATOR DE POTÊNCIA ---
-col7 = st.columns(1)
+# Colocando o fator de potência em uma coluna independente para ser exibido como único
+col_fator = st.columns(1)  # Uma única coluna para o fator de potência
 
-with col7:
+with col_fator:
     if fator_potencia is not None:
         fator_potencia_valor = float(fator_potencia)
         visor(f"{fator_potencia_valor:.2f}", "Fator de Potência", "#2c3e50", "#2ecc71")
