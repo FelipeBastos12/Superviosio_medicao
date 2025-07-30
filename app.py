@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objs as go
+import os
 from streamlit_autorefresh import st_autorefresh
 
 # --- CONFIGURAÇÕES ---
@@ -62,9 +63,6 @@ tensao = row.get("Tensao_Fase_ A", None)
 frequencia = row.get("Frequencia_Fase_A", None)
 corrente = row.get("Corrente_Fase_A", None)
 
-# --- VERIFICAR SE A TENSÃO ESTÁ CORRETA ---
-st.write(f"Tensão lida: {tensao}")  # Exibe a tensão para depuração
-
 # --- SUBSTITUI VALORES ZERO NA CORRENTE PELO VALOR ANTERIOR ---
 if corrente == 0:
     corrente = st.session_state.get("corrente_anterior", corrente)
@@ -76,47 +74,41 @@ col1, col2, col3 = st.columns(3)
 
 with col1:
     if tensao is not None:
-        try:
-            tensao_valor = float(tensao)  # Conversão da tensão para float
-            cor_fundo = "#c0392b" if tensao_valor < 210 else "#2c3e50"
-            cor_texto = "#ffffff" if tensao_valor < 210 else "#2ecc71"
-            visor(f"{tensao_valor:.1f} V", "Tensão", cor_fundo, cor_texto)
-        except ValueError:
-            st.error("Erro ao converter a Tensão para número.")  # Caso ocorra erro
+        tensao_valor = float(tensao)
+        cor_fundo = "#c0392b" if tensao_valor < 210 else "#2c3e50"
+        cor_texto = "#ffffff" if tensao_valor < 210 else "#2ecc71"
+        visor(f"{tensao_valor:.1f} V", "V", cor_fundo, cor_texto)
 
 with col2:
     if frequencia is not None:
         freq_valor = float(frequencia)
-        visor(f"{freq_valor:.1f} Hz", "Frequência", "#2c3e50", "#2ecc71")
+        visor(f"{freq_valor:.1f} Hz", "F", "#2c3e50", "#2ecc71")
 
 with col3:
     if corrente is not None:
         corrente_valor = float(corrente)
-        visor(f"{corrente_valor:.1f} A", "Corrente", "#2c3e50", "#2ecc71")
+        visor(f"{corrente_valor:.1f} A", "I", "#2c3e50", "#2ecc71")
 
 # --- PLOT DA TENSÃO ---
 if "tensoes" not in st.session_state:
     st.session_state.tensoes = []
 
 if tensao is not None:
-    try:
-        st.session_state.tensoes.append(float(tensao))
-        st.session_state.tensoes = st.session_state.tensoes[-50:]  # Janela deslizante
+    st.session_state.tensoes.append(float(tensao))
+    st.session_state.tensoes = st.session_state.tensoes[-50:]  # Janela deslizante
 
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            y=st.session_state.tensoes,
-            mode='lines+markers',
-            line=dict(color="#2980b9", width=2),
-            name="Tensão"
-        ))
-        fig.update_layout(
-            title="Tensão Fase A (V)",
-            xaxis_title="Amostras",
-            yaxis_title="Tensão (V)",
-            height=400,
-            template="simple_white"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    except ValueError:
-        st.error("Erro ao adicionar a tensão ao gráfico.")
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        y=st.session_state.tensoes,
+        mode='lines+markers',
+        line=dict(color="#2980b9", width=2),
+        name="Tensão"
+    ))
+    fig.update_layout(
+        title="Tensão Fase A (V)",
+        xaxis_title="Amostras",
+        yaxis_title="Tensão (V)",
+        height=400,
+        template="simple_white"
+    )
+    st.plotly_chart(fig, use_container_width=True)
