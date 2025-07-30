@@ -59,8 +59,13 @@ st.session_state.index += 1
 
 # --- EXTRAI OS VALORES ---
 tensao = row.get("Tensao_Fase_ A", None)
-frequencia = row.get("Frequencia_Fase_A", None)
+tensao_linha_ab = row.get("Tensao_De_Linha_AB", None)
 corrente = row.get("Corrente_Fase_A", None)
+potencia_ativa = row.get("Potencia_Ativa_Fase_A", None)
+fator_potencia = row.get("fator_De_Potencia_Fase_A", None)
+potencia_reativa = row.get("Potencia_Reativa_Fase_A", None)
+potencia_aparente = row.get("Potencia_Aparente_Fase_A", None)
+frequencia = row.get("Frequencia_Fase_A", None)
 
 # --- SUBSTITUI VALORES ZERO NA CORRENTE PELO VALOR ANTERIOR ---
 if corrente == 0:
@@ -87,6 +92,37 @@ with col3:
     if corrente is not None:
         corrente_valor = float(corrente)
         visor(f"{corrente_valor:.1f} A", "Corrente", "#2c3e50", "#2ecc71")
+
+# --- EXIBE MAIS INFORMAÇÕES EM CARDS ESTILIZADOS ---
+col4, col5, col6 = st.columns(3)
+
+with col4:
+    if tensao_linha_ab is not None:
+        tensao_linha_ab_valor = float(tensao_linha_ab)
+        visor(f"{tensao_linha_ab_valor:.2f} V", "Tensão Linha AB", "#2c3e50", "#2ecc71")
+
+with col5:
+    if potencia_ativa is not None:
+        potencia_ativa_valor = float(potencia_ativa)
+        visor(f"{potencia_ativa_valor:.2f} W", "Potência Ativa", "#2c3e50", "#2ecc71")
+
+with col6:
+    if potencia_reativa is not None:
+        potencia_reativa_valor = float(potencia_reativa)
+        visor(f"{potencia_reativa_valor:.2f} VAr", "Potência Reativa", "#2c3e50", "#2ecc71")
+
+# --- EXIBE ENERGIA APARENTE E FATOR DE POTÊNCIA EM OUTRA COLUNA ---
+col7, col8 = st.columns(2)
+
+with col7:
+    if potencia_aparente is not None:
+        potencia_aparente_valor = float(potencia_aparente)
+        visor(f"{potencia_aparente_valor:.2f} VA", "Potência Aparente", "#2c3e50", "#2ecc71")
+
+with col8:
+    if fator_potencia is not None:
+        fator_potencia_valor = float(fator_potencia)
+        visor(f"{fator_potencia_valor:.2f}", "Fator de Potência", "#2c3e50", "#2ecc71")
 
 # --- PLOT DA TENSÃO ---
 if "tensoes" not in st.session_state:
