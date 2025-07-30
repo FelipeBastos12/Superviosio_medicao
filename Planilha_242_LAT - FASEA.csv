@@ -1,4 +1,4 @@
-Data,Horário,Tensao_Fase_A,Tensao_De_Linha_AB,Corrente_Fase_A,Potencia_Ativa_Fase_A,fator_De_Potencia_Fase_A,Potencia_Reativa_Fase_A,Potencia_Aparente_Fase_A,Frequencia_Fase_A,Intervalos em Hora,C (Wh),C (kWh)
+Data,Horário,Tensao_Fase_ A,Tensao_De_Linha_AB,Corrente_Fase_A,Potencia_Ativa_Fase_A,fator_De_Potencia_Fase_A,Potencia_Reativa_Fase_A,Potencia_Aparente_Fase_A,Frequencia_Fase_A,Intervalos em Hora,C (Wh),C (kWh)
 23/05/2025,08:03:06,"223,40","385,90",0,0,"0,00","0,00",0,60,"0,023611","0,000000","0,0000000"
 23/05/2025,08:04:31,"223,00","384,60",0,0,"0,00","0,00",0,60,"0,022778","0,000000","0,0000000"
 23/05/2025,08:05:53,"222,70","384,00",0,"0,00","0,00","0,00",0,60,"0,022222","0,000000","0,0000000"
