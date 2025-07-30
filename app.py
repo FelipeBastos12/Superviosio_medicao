@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objs as go
-import os
 from streamlit_autorefresh import st_autorefresh
 
 # --- CONFIGURAÇÕES ---
@@ -59,9 +58,13 @@ row = df.iloc[st.session_state.index]
 st.session_state.index += 1
 
 # --- EXTRAI OS VALORES ---
-tensao = row.get("Tensao_Fase_A", None)
+tensao = row.get("Tensao_Fase_ A", None)
 frequencia = row.get("Frequencia_Fase_A", None)
 corrente = row.get("Corrente_Fase_A", None)
+energia_aparente = row.get("Potencia_Aparente_Fase_A", None)
+energia_ativa = row.get("Potencia_Ativa_Fase_A", None)
+energia_reativa = row.get("Potencia_Reativa_Fase_A", None)
+fator_potencia = row.get("fator_De_Potencia_Fase_A", None)
 
 # --- SUBSTITUI VALORES ZERO NA CORRENTE PELO VALOR ANTERIOR ---
 if corrente == 0:
@@ -77,17 +80,43 @@ with col1:
         tensao_valor = float(tensao)
         cor_fundo = "#c0392b" if tensao_valor < 210 else "#2c3e50"
         cor_texto = "#ffffff" if tensao_valor < 210 else "#2ecc71"
-        visor(f"{tensao_valor:.1f} V", "V", cor_fundo, cor_texto)
+        visor(f"{tensao_valor:.1f} V", "Tensão", cor_fundo, cor_texto)
 
 with col2:
     if frequencia is not None:
         freq_valor = float(frequencia)
-        visor(f"{freq_valor:.1f} Hz", "F", "#2c3e50", "#2ecc71")
+        visor(f"{freq_valor:.1f} Hz", "Frequência", "#2c3e50", "#2ecc71")
 
 with col3:
     if corrente is not None:
         corrente_valor = float(corrente)
-        visor(f"{corrente_valor:.1f} A", "I", "#2c3e50", "#2ecc71")
+        visor(f"{corrente_valor:.1f} A", "Corrente", "#2c3e50", "#2ecc71")
+
+# --- EXIBE MAIS INFORMAÇÕES EM CARDS ESTILIZADOS ---
+col4, col5, col6 = st.columns(3)
+
+with col4:
+    if energia_aparente is not None:
+        energia_aparente_valor = float(energia_aparente)
+        visor(f"{energia_aparente_valor:.2f} VA", "Energia Aparente", "#2c3e50", "#2ecc71")
+
+with col5:
+    if energia_ativa is not None:
+        energia_ativa_valor = float(energia_ativa)
+        visor(f"{energia_ativa_valor:.2f} W", "Energia Ativa", "#2c3e50", "#2ecc71")
+
+with col6:
+    if energia_reativa is not None:
+        energia_reativa_valor = float(energia_reativa)
+        visor(f"{energia_reativa_valor:.2f} VAr", "Energia Reativa", "#2c3e50", "#2ecc71")
+
+# --- EXIBIÇÃO DO FATOR DE POTÊNCIA ---
+col7 = st.columns(1)
+
+with col7:
+    if fator_potencia is not None:
+        fator_potencia_valor = float(fator_potencia)
+        visor(f"{fator_potencia_valor:.2f}", "Fator de Potência", "#2c3e50", "#2ecc71")
 
 # --- PLOT DA TENSÃO ---
 if "tensoes" not in st.session_state:
