@@ -40,6 +40,13 @@ tensao = row.get("Tensao_Fase_A", None)
 frequencia = row.get("Frequencia_Fase_A", None)
 corrente = row.get("Corrente_Fase_A", None)
 
+# --- VALIDAÇÃO DO VALOR DA TENSÃO ---
+# Verificar se o valor da tensão é válido antes de tentar convertê-lo
+if tensao is not None and str(tensao).replace(",", "").replace(".", "").isdigit():
+    tensao_valor = float(str(tensao).replace(",", "."))
+else:
+    tensao_valor = None  # Se não for válido, definir como None
+
 # --- SUBSTITUI VALORES ZERO NA CORRENTE PELO VALOR ANTERIOR ---
 if corrente == 0:
     corrente = st.session_state.get("corrente_anterior", corrente)
@@ -50,8 +57,7 @@ else:
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    if tensao is not None:
-        tensao_valor = float(tensao)
+    if tensao_valor is not None:
         cor_fundo = "#c0392b" if tensao_valor < 210 else "#2c3e50"
         cor_texto = "#ffffff" if tensao_valor < 210 else "#2ecc71"
         st.markdown(f"<div style='background-color: {cor_fundo}; color: {cor_texto}; padding: 20px; border-radius: 10px; text-align: center; font-size: 24px; font-weight: bold;'>V: {tensao_valor:.1f} V</div>", unsafe_allow_html=True)
@@ -70,8 +76,8 @@ with col3:
 if "tensoes" not in st.session_state:
     st.session_state.tensoes = []
 
-if tensao is not None:
-    st.session_state.tensoes.append(float(tensao))
+if tensao_valor is not None:
+    st.session_state.tensoes.append(tensao_valor)
     st.session_state.tensoes = st.session_state.tensoes[-50:]  # Janela deslizante
 
     fig = go.Figure()
