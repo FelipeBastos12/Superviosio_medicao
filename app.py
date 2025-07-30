@@ -1,69 +1,91 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
+import plotly.graph_objs as go
+from streamlit_autorefresh import st_autorefresh
 
-# Configuração da página
-st.set_page_config(page_title="Analisador Elétrico", layout="wide")
+# --- CONFIGURAÇÕES ---
+CSV_PATH = "Planilha_242_LAT - FASEA.csv"
+REFRESH_INTERVAL_MS = 500  # milissegundos para o st_autorefresh
 
-# Título
-st.markdown("<h1 style='text-align: center;'>Analisador Elétrico - Fase A</h1>", unsafe_allow_html=True)
-
-# Carregar CSV com separador decimal vírgula
+# --- LEITURA E LIMPEZA DO CSV ---
 @st.cache_data
-def load_data():
-    # Carregar o CSV
-    df = pd.read_csv("Planilha_242_LAT - FASEA.csv", sep=",", decimal=",")
-    
-    # Exibe os nomes das colunas para depuração
-    st.write("Nomes das colunas:", df.columns)
-    
-    # Criar a coluna DataHora unindo 'Data' e 'Horário'
+def load_and_clean_csv(path):
+    df = pd.read_csv(path, sep=",", decimal=",")
     df['DataHora'] = pd.to_datetime(df['Data'] + " " + df['Horário'], dayfirst=True)
-    
-    # Garantir que os dados estejam ordenados pela data e hora
-    df.sort_values('DataHora', inplace=True)
-
-    # Converter a coluna de Tensão de string para float (com substituição da vírgula por ponto)
-    df['Tensao_Fase_A'] = df['Tensao_Fase_A'].astype(str).str.replace(",", ".").astype(float)
-
     return df
 
-# Carregar os dados
-df = load_data()
+# --- CONFIGURAÇÃO DA PÁGINA ---
+st.set_page_config(page_title="Supervisório LAT", layout="wide")
 
-# Obter o último valor disponível para exibição
-latest = df.iloc[-1]
+# --- CARREGA OS DADOS ---
+df = load_and_clean_csv(CSV_PATH)
 
-# Colunas para exibir os dados
-col1, col2, col3, col4 = st.columns(4)
+# --- CONTROLE DO INDEX COM SESSION STATE ---
+if "index" not in st.session_state:
+    st.session_state.index = 0
+
+# --- AUTOREFRESH A CADA 0.5 SEGUNDOS ---
+count = st_autorefresh(interval=REFRESH_INTERVAL_MS, limit=None, key="auto_refresh")
+
+# --- LÊ A LINHA ATUAL ---
+if st.session_state.index >= len(df):
+    st.session_state.index = 0  # Reinicia a leitura
+    st.success("Reiniciando a leitura dos dados.")
+
+row = df.iloc[st.session_state.index]
+st.session_state.index += 1
+
+# --- EXTRAI OS VALORES ---
+tensao = row.get("Tensao_Fase_A", None)
+frequencia = row.get("Frequencia_Fase_A", None)
+corrente = row.get("Corrente_Fase_A", None)
+
+# --- SUBSTITUI VALORES ZERO NA CORRENTE PELO VALOR ANTERIOR ---
+if corrente == 0:
+    corrente = st.session_state.get("corrente_anterior", corrente)
+else:
+    st.session_state["corrente_anterior"] = corrente
+
+# --- EXIBE OS VISUAIS ---
+col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.metric("Tensão (V)", f"{latest['Tensao_Fase_A']} V")
-    st.metric("Tensão de Linha AB", f"{latest['Tensao_De_Linha_AB']} V")
-    st.metric("Frequência", f"{latest['Frequencia_Fase_A']} Hz")
+    if tensao is not None:
+        tensao_valor = float(tensao)
+        cor_fundo = "#c0392b" if tensao_valor < 210 else "#2c3e50"
+        cor_texto = "#ffffff" if tensao_valor < 210 else "#2ecc71"
+        st.markdown(f"<div style='background-color: {cor_fundo}; color: {cor_texto}; padding: 20px; border-radius: 10px; text-align: center; font-size: 24px; font-weight: bold;'>V: {tensao_valor:.1f} V</div>", unsafe_allow_html=True)
 
 with col2:
-    st.metric("Corrente (A)", f"{latest['Corrente_Fase_A']} A")
-    st.metric("Fator de Potência", f"{latest['fator_De_Potencia_Fase_A']}")
+    if frequencia is not None:
+        freq_valor = float(frequencia)
+        st.markdown(f"<div style='background-color: #2c3e50; color: #2ecc71; padding: 20px; border-radius: 10px; text-align: center; font-size: 24px; font-weight: bold;'>F: {freq_valor:.1f} Hz</div>", unsafe_allow_html=True)
 
 with col3:
-    st.metric("Potência Ativa", f"{latest['Potencia_Ativa_Fase_A']} W")
-    st.metric("Potência Reativa", f"{latest['Potencia_Reativa_Fase_A']} VAr")
+    if corrente is not None:
+        corrente_valor = float(corrente)
+        st.markdown(f"<div style='background-color: #2c3e50; color: #2ecc71; padding: 20px; border-radius: 10px; text-align: center; font-size: 24px; font-weight: bold;'>I: {corrente_valor:.1f} A</div>", unsafe_allow_html=True)
 
-with col4:
-    st.metric("Potência Aparente", f"{latest['Potencia_Aparente_Fase_A']} VA")
-    st.metric("Energia Ativa (kWh)", f"{latest['C (kWh)']} kWh")
+# --- PLOT DA TENSÃO ---
+if "tensoes" not in st.session_state:
+    st.session_state.tensoes = []
 
-# Gráfico de Tensão ao longo do tempo
-st.markdown("### Gráfico de Tensão (Fase A)")
-fig, ax = plt.subplots(figsize=(12, 4))
-ax.plot(df['DataHora'], df['Tensao_Fase_A'], label='Tensão Fase A (V)', color='orange')
-ax.set_xlabel("Tempo")
-ax.set_ylabel("Tensão (V)")
-ax.grid(True)
-ax.legend()
-st.pyplot(fig)
+if tensao is not None:
+    st.session_state.tensoes.append(float(tensao))
+    st.session_state.tensoes = st.session_state.tensoes[-50:]  # Janela deslizante
 
-# Exibir a tabela com as últimas 10 linhas dos dados
-with st.expander("📊 Ver dados brutos"):
-    st.dataframe(df.tail(10))
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        y=st.session_state.tensoes,
+        mode='lines+markers',
+        line=dict(color="#2980b9", width=2),
+        name="Tensão"
+    ))
+    fig.update_layout(
+        title="Tensão Fase A (V)",
+        xaxis_title="Amostras",
+        yaxis_title="Tensão (V)",
+        height=400,
+        template="simple_white"
+    )
+    st.plotly_chart(fig, use_container_width=True)
