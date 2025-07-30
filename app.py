@@ -59,7 +59,7 @@ row = df.iloc[st.session_state.index]
 st.session_state.index += 1
 
 # --- EXTRAI OS VALORES ---
-tensao = row.get("Tensao_Fase_ A", None)
+tensao = row.get("Tensao_Fase_A", None)
 frequencia = row.get("Frequencia_Fase_A", None)
 corrente = row.get("Corrente_Fase_A", None)
 
