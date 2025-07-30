@@ -13,16 +13,13 @@ st.markdown("<h1 style='text-align: center;'>Analisador Elétrico - Fase A</h1>"
 def load_data():
     df = pd.read_csv("Planilha_242_LAT - FASEA.csv", sep=",", decimal=",")
     
-    # Exibe os nomes das colunas para debug
-    st.write("Nomes das colunas:", df.columns)
-    
     # Corrige os nomes das colunas removendo espaços extras
     df.columns = df.columns.str.strip()
 
-    # Criar a coluna DataHora unindo 'Data' e 'Horário'
-    df['DataHora'] = pd.to_datetime(df['Data'] + " " + df['Horário'], dayfirst=True)
+    # Exibe os nomes das colunas para verificar
+    st.write("Nomes das colunas:", df.columns)
     
-    # Garantir que os dados estejam ordenados pela data e hora
+    df['DataHora'] = pd.to_datetime(df['Data'] + " " + df['Horário'], dayfirst=True)
     df.sort_values('DataHora', inplace=True)
 
     # Converter a coluna de Tensão de string para float (com substituição da vírgula por ponto)
