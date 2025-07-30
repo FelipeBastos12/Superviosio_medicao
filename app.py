@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objs as go
+import os
 from streamlit_autorefresh import st_autorefresh
 
 # --- CONFIGURAÇÕES ---
@@ -10,9 +11,31 @@ REFRESH_INTERVAL_MS = 500  # milissegundos para o st_autorefresh
 # --- LEITURA E LIMPEZA DO CSV ---
 @st.cache_data
 def load_and_clean_csv(path):
-    df = pd.read_csv(path, sep=",", decimal=",")
-    df['DataHora'] = pd.to_datetime(df['Data'] + " " + df['Horário'], dayfirst=True)
+    df = pd.read_csv(path)
+    for col in df.columns:
+        df[col] = df[col].astype(str).str.replace(",", ".", regex=False)
+        try:
+            df[col] = df[col].astype(float)
+        except ValueError:
+            pass
     return df
+
+# --- ESTILOS ---
+def visor(valor, label, cor_fundo, cor_texto):
+    st.markdown(f"""
+    <div style='
+        background-color: {cor_fundo};
+        color: {cor_texto};
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 10px;
+    '>
+        {label}: {valor}
+    </div>
+    """, unsafe_allow_html=True)
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Supervisório LAT", layout="wide")
@@ -36,16 +59,9 @@ row = df.iloc[st.session_state.index]
 st.session_state.index += 1
 
 # --- EXTRAI OS VALORES ---
-tensao = row.get("Tensao_Fase_A", None)
+tensao = row.get("Tensao_Fase_ A", None)
 frequencia = row.get("Frequencia_Fase_A", None)
 corrente = row.get("Corrente_Fase_A", None)
-
-# --- VALIDAÇÃO DO VALOR DA TENSÃO ---
-# Verificar se o valor da tensão é válido antes de tentar convertê-lo
-if tensao is not None and str(tensao).replace(",", "").replace(".", "").isdigit():
-    tensao_valor = float(str(tensao).replace(",", "."))
-else:
-    tensao_valor = None  # Se não for válido, definir como None
 
 # --- SUBSTITUI VALORES ZERO NA CORRENTE PELO VALOR ANTERIOR ---
 if corrente == 0:
@@ -57,27 +73,28 @@ else:
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    if tensao_valor is not None:
+    if tensao is not None:
+        tensao_valor = float(tensao)
         cor_fundo = "#c0392b" if tensao_valor < 210 else "#2c3e50"
         cor_texto = "#ffffff" if tensao_valor < 210 else "#2ecc71"
-        st.markdown(f"<div style='background-color: {cor_fundo}; color: {cor_texto}; padding: 20px; border-radius: 10px; text-align: center; font-size: 24px; font-weight: bold;'>V: {tensao_valor:.1f} V</div>", unsafe_allow_html=True)
+        visor(f"{tensao_valor:.1f} V", "V", cor_fundo, cor_texto)
 
 with col2:
     if frequencia is not None:
         freq_valor = float(frequencia)
-        st.markdown(f"<div style='background-color: #2c3e50; color: #2ecc71; padding: 20px; border-radius: 10px; text-align: center; font-size: 24px; font-weight: bold;'>F: {freq_valor:.1f} Hz</div>", unsafe_allow_html=True)
+        visor(f"{freq_valor:.1f} Hz", "F", "#2c3e50", "#2ecc71")
 
 with col3:
     if corrente is not None:
         corrente_valor = float(corrente)
-        st.markdown(f"<div style='background-color: #2c3e50; color: #2ecc71; padding: 20px; border-radius: 10px; text-align: center; font-size: 24px; font-weight: bold;'>I: {corrente_valor:.1f} A</div>", unsafe_allow_html=True)
+        visor(f"{corrente_valor:.1f} A", "I", "#2c3e50", "#2ecc71")
 
 # --- PLOT DA TENSÃO ---
 if "tensoes" not in st.session_state:
     st.session_state.tensoes = []
 
-if tensao_valor is not None:
-    st.session_state.tensoes.append(tensao_valor)
+if tensao is not None:
+    st.session_state.tensoes.append(float(tensao))
     st.session_state.tensoes = st.session_state.tensoes[-50:]  # Janela deslizante
 
     fig = go.Figure()
