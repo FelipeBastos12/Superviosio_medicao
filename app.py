@@ -21,7 +21,7 @@ colunas = {
     },
     "B": {
         "tensao": "Tensao_Fase_B",
-        "corrente": "Corrente_Fase_B",
+        "corrente": "Corrente_Fase_ B",
         "potencia": "Potencia_Ativa_Fase_B",
         "frequencia": "Frequencia_Fase_B"
     },
@@ -174,3 +174,4 @@ fig.update_layout(
     template="simple_white"
 )
 st.plotly_chart(fig, use_container_width=True)
+
