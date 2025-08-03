@@ -255,7 +255,11 @@ for fase in ["A", "B", "C"]:
             name=f"Fase {fase}",
             line=dict(color=cores[fase])
         ))
-        fig.update_layout(title="Tensão nas Fases", yaxis_title="Tensão (V)")
+        fig.update_layout(
+            title="Tensão nas Fases",
+            yaxis_title="Tensão (V)",
+            yaxis=dict(range=[0, 500])  # <-- eixo y fixo de 0 a 500 V
+        )
     elif grafico_selecionado == "Corrente":
         fig.add_trace(go.Scatter(
             y=dados["corrente"],
