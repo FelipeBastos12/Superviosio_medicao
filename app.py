@@ -265,7 +265,6 @@ cores = {"A": "#2980b9", "B": "#e67e22", "C": "#27ae60"}
 
 # Cria um intervalo de tempo para as 24h para o Dia Atual
 date_23_05 = datetime(2025, 5, 23)
-horarios_24h = [date_23_05 + timedelta(minutes=i) for i in range(24 * 60)]
 
 for fase in ["A", "B", "C"]:
     dados = st.session_state[f"valores_{fase}"]
@@ -292,7 +291,7 @@ for fase in ["A", "B", "C"]:
         fig.update_layout(
             title="Tensão nas Fases",
             yaxis_title="Tensão (V)",
-            yaxis=dict(range=[200, 250])  # eixo Y fixo de 0 a 500 V
+            yaxis=dict(range=[200, 250])  # eixo Y fixo de 200 a 250 V
         )
     elif grafico_selecionado == "Corrente":
         fig.add_trace(go.Scatter(
@@ -329,4 +328,3 @@ fig.update_layout(
     template="simple_white"
 )
 st.plotly_chart(fig, use_container_width=True)
-
