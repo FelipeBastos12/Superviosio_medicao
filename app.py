@@ -115,57 +115,106 @@ for fase in ["A", "B", "C"]:
         st.session_state[f"valores_{fase}"]["potencia"] = st.session_state[f"valores_{fase}"]["potencia"][-50:]
 
 # --- VISUALIZAÇÃO AGRUPADA DOS VISORS ---
-def cor_tensao(valor):
-    return "#2ecc71" if valor >= 210 else "#c0392b"
-
+# A nova estrutura de colunas deve ser por grandeza
 col_tensao, col_corrente, col_potencia, col_frequencia = st.columns(4)
 
+def cor_tensao(valor):
+    return "#2ecc71" if valor >= 210 else "#c0392b"
+    
+def criar_visor_agrupado(titulo, unidade, cor_fundo, cor_texto, dados_por_fase, cor_fase_A="#2ecc71", cor_fase_B="#2ecc71", cor_fase_C="#2ecc71"):
+    """Função para criar um único visor grande com os dados das 3 fases"""
+    conteudo_visor = ""
+    conteudo_visor += f"<h4 style='text-align: center;'>{titulo}</h4>"
+    for fase in ["A", "B", "C"]:
+        valor = dados_por_fase[fase][-1] if dados_por_fase[fase] else None
+        if valor is not None:
+            # Aplica a cor condicional para a tensão
+            cor_atual = cor_tensao(valor) if titulo == "Tensão" else cor_texto
+            conteudo_visor += f"""
+                <div style='
+                    color: {cor_atual};
+                    padding: 5px;
+                    text-align: left;
+                    font-size: 20px;
+                    font-weight: bold;
+                '>
+                    Fase {fase}: {valor:.2f} {unidade}
+                </div>
+            """
+
+    # Retorna o visor completo dentro de um container
+    return f"""
+    <div style='
+        background-color: {cor_fundo};
+        color: {cor_texto};
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+    '>
+        {conteudo_visor}
+    </div>
+    """
+
 with col_tensao:
-    st.subheader("Tensão")
-    conteudo = ""
-    for fase in ["A", "B", "C"]:
-        valor = st.session_state[f"valores_{fase}"]["tensao"][-1] if st.session_state[f"valores_{fase}"]["tensao"] else None
-        if valor is not None:
-            conteudo += visor(f"{valor:.1f} V", f"Fase {fase}", "#2c3e50", cor_tensao(valor))
-    st.markdown(conteudo, unsafe_allow_html=True)
-
+    # Coleta os últimos valores de tensão de cada fase
+    dados_tensao = {fase: st.session_state[f"valores_{fase}"]["tensao"] for fase in ["A", "B", "C"]}
+    # Cria o visor agrupado de tensão
+    st.markdown(criar_visor_agrupado("Tensão", "V", "#2c3e50", "#ffffff", dados_tensao), unsafe_allow_html=True)
 with col_corrente:
-    st.subheader("Corrente")
-    conteudo = ""
-    for fase in ["A", "B", "C"]:
-        valor = st.session_state[f"valores_{fase}"]["corrente"][-1] if st.session_state[f"valores_{fase}"]["corrente"] else None
-        if valor is not None:
-            conteudo += visor(f"{valor:.1f} A", f"Fase {fase}", "#2c3e50", "#2ecc71")
-    st.markdown(conteudo, unsafe_allow_html=True)
-
+    # Coleta os últimos valores de corrente de cada fase
+    dados_corrente = {fase: st.session_state[f"valores_{fase}"]["corrente"] for fase in ["A", "B", "C"]}
+    # Cria o visor agrupado de corrente
+    st.markdown(criar_visor_agrupado("Corrente", "A", "#2c3e50", "#ffffff", dados_corrente), unsafe_allow_html=True)
 with col_potencia:
-    st.subheader("Potência Ativa")
-    conteudo = ""
-    for fase in ["A", "B", "C"]:
-        valor = st.session_state[f"valores_{fase}"]["potencia"][-1] if st.session_state[f"valores_{fase}"]["potencia"] else None
-        if valor is not None:
-            conteudo += visor(f"{valor:.2f} W", f"Fase {fase}", "#2c3e50", "#2ecc71")
-    st.markdown(conteudo, unsafe_allow_html=True)
-
+    # Coleta os últimos valores de potência de cada fase
+    dados_potencia = {fase: st.session_state[f"valores_{fase}"]["potencia"] for fase in ["A", "B", "C"]}
+    # Cria o visor agrupado de potência
+    st.markdown(criar_visor_agrupado("Potência Ativa", "W", "#2c3e50", "#ffffff", dados_potencia), unsafe_allow_html=True)
 with col_frequencia:
-    st.subheader("Frequência")
-    conteudo = ""
-    for fase in ["A", "B", "C"]:
-        # frequencia não está armazenada no buffer, pega do último valor lido
-        valor = None
-        # Como não salvamos frequência no buffer, tentamos pegar do último row:
-        # Aqui, só para ilustrar, tenta pegar do último índice de qualquer fase (usar A)
-        try:
-            valor = dfs["A"].iloc[st.session_state["index_A"]-1].get(colunas["A"]["frequencia"], None)
-            if valor is not None:
-                valor = float(valor)
-        except:
-            pass
-        if valor is not None:
-            conteudo += visor(f"{valor:.2f} Hz", f"Fase A", "#2c3e50", "#2ecc71")
-        # Para B e C não temos valor salvo, deixei só A para frequência, pois seu código original não atualizava em buffer
-        # Se quiser implementar para B e C também, pode-se adicionar buffers como nos outros
-    st.markdown(conteudo, unsafe_allow_html=True)
+    # Coleta os últimos valores de frequência
+    # Lembre-se que seu código original só extrai frequência para a Fase A
+    valor_frequencia_A = dfs["A"].iloc[st.session_state["index_A"]-1].get(colunas["A"]["frequencia"], None)
+    valor_frequencia_A = float(valor_frequencia_A) if valor_frequencia_A is not None else None
+    
+    # Cria o visor agrupado de frequência
+    st.markdown(f"""
+    <div style='
+        background-color: #2c3e50;
+        color: #ffffff;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+    '>
+        <h4 style='text-align: center;'>Frequência</h4>
+        <div style='
+            color: #2ecc71;
+            padding: 5px;
+            text-align: left;
+            font-size: 20px;
+            font-weight: bold;
+        '>
+            Fase A: {valor_frequencia_A:.2f} Hz
+        </div>
+        <div style='
+            color: #2ecc71;
+            padding: 5px;
+            text-align: left;
+            font-size: 20px;
+            font-weight: bold;
+        '>
+            Fase B: {valor_frequencia_A:.2f} Hz
+        </div>
+        <div style='
+            color: #2ecc71;
+            padding: 5px;
+            text-align: left;
+            font-size: 20px;
+            font-weight: bold;
+        '>
+            Fase C: {valor_frequencia_A:.2f} Hz
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # --- GRÁFICOS DINÂMICOS ---
 grafico_selecionado = st.radio("📈 Selecione o gráfico a ser exibido:", ("Tensão", "Corrente", "Potência Ativa"))
