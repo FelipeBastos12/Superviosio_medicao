@@ -199,11 +199,18 @@ for fase in ["A", "B", "C"]:
     valores_potencia[fase] = float(potencia)
     valores_frequencia[fase] = float(frequencia)
 
-# --- EXIBIÇÃO AGRUPADA ---
-visor_fases("Tensão", valores_tensao, "V")
-visor_fases("Corrente", valores_corrente, "A")
-visor_fases("Potência Ativa", valores_potencia, "W")
-visor_fases("Frequência", valores_frequencia, "Hz")
+# --- EXIBIÇÃO AGRUPADA EM GRADE 2x2 ---
+row1_col1, row1_col2 = st.columns(2)
+row2_col1, row2_col2 = st.columns(2)
+
+with row1_col1:
+    visor_fases("Tensão", valores_tensao, "V")
+with row1_col2:
+    visor_fases("Corrente", valores_corrente, "A")
+with row2_col1:
+    visor_fases("Potência Ativa", valores_potencia, "W")
+with row2_col2:
+    visor_fases("Frequência", valores_frequencia, "Hz")
 
 # --- GRÁFICOS DINÂMICOS ---
 grafico_selecionado = st.radio("📈 Selecione o gráfico a ser exibido:", ("Tensão", "Corrente", "Potência Ativa"))
