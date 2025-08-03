@@ -248,22 +248,26 @@ cores = {"A": "#2980b9", "B": "#e67e22", "C": "#27ae60"}
 
 for fase in ["A", "B", "C"]:
     dados = st.session_state[f"valores_{fase}"]
+    
+    # Define o modo do gráfico conforme o dia selecionado
+    modo = "lines+markers" if dia_escolhido == "Dia Atual" else "lines"
+    
     if grafico_selecionado == "Tensão":
         fig.add_trace(go.Scatter(
             y=dados["tensao"],
-            mode='lines+markers',
+            mode=modo,
             name=f"Fase {fase}",
             line=dict(color=cores[fase])
         ))
         fig.update_layout(
             title="Tensão nas Fases",
             yaxis_title="Tensão (V)",
-            yaxis=dict(range=[0, 500])  # <-- eixo y fixo de 0 a 500 V
+            yaxis=dict(range=[0, 500])  # eixo Y fixo de 0 a 500 V
         )
     elif grafico_selecionado == "Corrente":
         fig.add_trace(go.Scatter(
             y=dados["corrente"],
-            mode='lines+markers',
+            mode=modo,
             name=f"Fase {fase}",
             line=dict(color=cores[fase])
         ))
@@ -271,7 +275,7 @@ for fase in ["A", "B", "C"]:
     elif grafico_selecionado == "Potência Ativa":
         fig.add_trace(go.Scatter(
             y=dados["potencia"],
-            mode='lines+markers',
+            mode=modo,
             name=f"Fase {fase}",
             line=dict(color=cores[fase])
         ))
@@ -283,3 +287,5 @@ fig.update_layout(
     template="simple_white"
 )
 st.plotly_chart(fig, use_container_width=True)
+
+
