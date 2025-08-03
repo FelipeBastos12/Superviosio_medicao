@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objs as go
 from streamlit_autorefresh import st_autorefresh
+from datetime import datetime, timedelta
 
 # --- CONFIGURAÇÕES ---
 PATHS = {
@@ -106,17 +107,12 @@ def get_dados(fase, dia):
         # Atualiza buffers para gráfico
         if tensao is not None:
             st.session_state[f"valores_{fase}"]["tensao"].append(float(tensao))
-            st.session_state[f"valores_{fase}"]["tensao"] = st.session_state[f"valores_{fase}"]["tensao"][-50:]
         if corrente is not None:
             st.session_state[f"valores_{fase}"]["corrente"].append(float(corrente))
-            st.session_state[f"valores_{fase}"]["corrente"] = st.session_state[f"valores_{fase}"]["corrente"][-50:]
         if potencia is not None:
             st.session_state[f"valores_{fase}"]["potencia"].append(float(potencia))
-            st.session_state[f"valores_{fase}"]["potencia"] = st.session_state[f"valores_{fase}"]["potencia"][-50:]
         if timestamp is not None:
             st.session_state[f"valores_{fase}"]["timestamp"].append(timestamp)
-            st.session_state[f"valores_{fase}"]["timestamp"] = st.session_state[f"valores_{fase}"]["timestamp"][-50:]
-
 
         return {
             "tensao": st.session_state[f"valores_{fase}"]["tensao"],
@@ -155,18 +151,27 @@ valores_frequencia = {}
 
 for fase in ["A", "B", "C"]:
     df = dfs[fase]
-
     if dia_escolhido == "Dia Atual":
-        idx = st.session_state[f"index_{fase}"] - 1
-        if idx < 0:
-            idx = 0
-        row = df.iloc[idx]
+        # Se os dados já estão no buffer de sessão, pega o último. Se não, usa o primeiro da planilha.
+        if st.session_state[f"valores_{fase}"]["timestamp"]:
+            last_idx = len(st.session_state[f"valores_{fase}"]["timestamp"]) - 1
+            tensao = st.session_state[f"valores_{fase}"]["tensao"][last_idx]
+            corrente = st.session_state[f"valores_{fase}"]["corrente"][last_idx]
+            potencia = st.session_state[f"valores_{fase}"]["potencia"][last_idx]
+            # Frequência não está no session state, pega do dataframe original
+            row_idx_original = st.session_state[f"index_{fase}"] - 1
+            if row_idx_original < 0:
+                row_idx_original = 0
+            frequencia = df.iloc[row_idx_original].get(colunas[fase]["frequencia"], 0)
+        else:
+            # Caso o buffer esteja vazio, pega a primeira linha para evitar erro
+            row = df.iloc[0]
+            tensao = row.get(colunas[fase]["tensao"], 0)
+            corrente = row.get(colunas[fase]["corrente"], 0)
+            potencia = row.get(colunas[fase]["potencia"], 0)
+            frequencia = row.get(colunas[fase]["frequencia"], 0)
 
-        tensao = row.get(colunas[fase]["tensao"], 0)
-        corrente = row.get(colunas[fase]["corrente"], 0)
-        potencia = row.get(colunas[fase]["potencia"], 0)
-        frequencia = row.get(colunas[fase]["frequencia"], 0)
-
+        # Corrente zero → mantém anterior
         if corrente == 0:
             corrente = st.session_state.get(f"corrente_anterior_{fase}", corrente)
         else:
@@ -258,15 +263,27 @@ grafico_selecionado = st.radio("", ("Tensão", "Corrente", "Potência Ativa"))
 fig = go.Figure()
 cores = {"A": "#2980b9", "B": "#e67e22", "C": "#27ae60"}
 
+# Cria um intervalo de tempo para as 24h para o Dia Atual
+date_23_05 = datetime(2025, 5, 23)
+horarios_24h = [date_23_05 + timedelta(minutes=i) for i in range(24 * 60)]
+
 for fase in ["A", "B", "C"]:
     dados = st.session_state[f"valores_{fase}"]
     
     # Define o modo do gráfico conforme o dia selecionado
     modo = "lines+markers" if dia_escolhido == "Dia Atual" else "lines"
     
+    # Lógica para o eixo X
+    if dia_escolhido == "Dia Atual":
+        # Usa os horários gerados em tempo real
+        x_values = dados["timestamp"]
+    else:
+        # Usa todos os horários do dataframe completo
+        x_values = dfs[fase]["Timestamp"]
+    
     if grafico_selecionado == "Tensão":
         fig.add_trace(go.Scatter(
-            x=dados["timestamp"],  # Eixo X agora é o Timestamp
+            x=x_values,
             y=dados["tensao"],
             mode=modo,
             name=f"Fase {fase}",
@@ -279,7 +296,7 @@ for fase in ["A", "B", "C"]:
         )
     elif grafico_selecionado == "Corrente":
         fig.add_trace(go.Scatter(
-            x=dados["timestamp"],  # Eixo X agora é o Timestamp
+            x=x_values,
             y=dados["corrente"],
             mode=modo,
             name=f"Fase {fase}",
@@ -288,7 +305,7 @@ for fase in ["A", "B", "C"]:
         fig.update_layout(title="Corrente nas Fases", yaxis_title="Corrente (A)")
     elif grafico_selecionado == "Potência Ativa":
         fig.add_trace(go.Scatter(
-            x=dados["timestamp"],  # Eixo X agora é o Timestamp
+            x=x_values,
             y=dados["potencia"],
             mode=modo,
             name=f"Fase {fase}",
@@ -300,8 +317,11 @@ fig.update_layout(
     xaxis_title="Horário",
     xaxis_tickformat='%H:%M',  # Formata o eixo X para mostrar horas e minutos
     xaxis=dict(
-        tickmode='auto', 
-        nticks=24,  # Tenta exibir 24 ticks (uma para cada hora)
+        tickmode='array',
+        # Define os ticks para as 24 horas, garantindo que o eixo X esteja completo
+        tickvals=[date_23_05 + timedelta(hours=h) for h in range(25)], 
+        ticktext=[f'{h:02d}:00' for h in range(25)],
+        range=[date_23_05, date_23_05 + timedelta(days=1)],
         showgrid=True,
         gridcolor='rgba(128,128,128,0.2)'
     ),
