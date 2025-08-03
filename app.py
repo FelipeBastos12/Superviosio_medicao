@@ -52,8 +52,7 @@ dfs = {fase: load_and_clean_csv(path) for fase, path in PATHS.items()}
 # --- CONFIGURAÇÃO DE PÁGINA ---
 st.set_page_config(page_title="Supervisório LAT Trifásico", layout="wide")
 
-# --- SELETOR DE DIA ---
-dia_escolhido = st.radio("Selecionar dia para visualização:", ("Dia Atual", "Dia Anterior"))
+
 
 # --- AUTOREFRESH (só para Dia Atual) ---
 if dia_escolhido == "Dia Atual":
@@ -76,7 +75,8 @@ with col_logo:
     st.image("FDJ_engenharia.jpg", width=500)
 with col_titulo:
     st.markdown("<h1 style='padding-top: 90px;'>Supervisório de Medição Elétrica</h1>", unsafe_allow_html=True)
-
+# --- SELETOR DE DIA ---
+dia_escolhido = st.radio("Selecionar dia para visualização:", ("Dia Atual", "Dia Anterior"))
 # --- FUNÇÃO PARA PEGAR OS DADOS SEGUNDO O DIA SELECIONADO ---
 def get_dados(fase, dia):
     df = dfs[fase]
@@ -264,7 +264,7 @@ for fase in ["A", "B", "C"]:
         fig.update_layout(
             title="Tensão nas Fases",
             yaxis_title="Tensão (V)",
-            yaxis=dict(range=[0, 500])  # eixo Y fixo de 0 a 500 V
+            yaxis=dict(range=[100, 250])  # eixo Y fixo de 0 a 500 V
         )
     elif grafico_selecionado == "Corrente":
         fig.add_trace(go.Scatter(
@@ -289,3 +289,4 @@ fig.update_layout(
     template="simple_white"
 )
 st.plotly_chart(fig, use_container_width=True)
+
