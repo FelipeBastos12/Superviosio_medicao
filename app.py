@@ -49,13 +49,16 @@ dfs = {fase: load_and_clean_csv(path) for fase, path in PATHS.items()}
 
 # --- CONFIGURAÇÃO DE PÁGINA ---
 
-st.set_page_config(page_title="Supervisório LAT Trifásico", layout="wide")
 # --- CONFIGURAÇÃO DE PÁGINA ---
 st.set_page_config(page_title="Supervisório LAT Trifásico", layout="wide")
 
-# Exibe a imagem no topo
-st.image("FDJ_engenharia.jpg", width=400)  # ajuste a largura conforme desejar
-st.title("Supervisório de medição elétrica")
+# Layout com logo e título lado a lado
+col_logo, col_titulo = st.columns([1, 5])
+with col_logo:
+    st.image("6530_-_Eletrica_-_GRUPOS.jpg", width=130)  # Use a imagem que você já adicionou
+with col_titulo:
+    st.markdown("<h1 style='padding-top: 20px;'>Supervisório de Medição Elétrica</h1>", unsafe_allow_html=True)
+
 
 # --- AUTOREFRESH ---
 st_autorefresh(interval=REFRESH_INTERVAL_MS, limit=None, key="auto_refresh")
@@ -257,6 +260,7 @@ fig.update_layout(
     template="simple_white"
 )
 st.plotly_chart(fig, use_container_width=True)
+
 
 
 
