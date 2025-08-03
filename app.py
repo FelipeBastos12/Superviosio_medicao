@@ -263,58 +263,75 @@ grafico_selecionado = st.radio("", ("Tensão", "Corrente", "Potência Ativa"))
 fig = go.Figure()
 cores = {"A": "#2980b9", "B": "#e67e22", "C": "#27ae60"}
 
+# Cria um mapeamento do nome do gráfico para a chave de dados
+chave_de_dados = {
+    "Tensão": "tensao",
+    "Corrente": "corrente",
+    "Potência Ativa": "potencia"
+}
+
 # Cria um intervalo de tempo para as 24h para o Dia Atual
 date_23_05 = datetime(2025, 5, 23)
-horarios_24h = [date_23_05 + timedelta(hours=h) for h in range(25)]
+horarios_24h = [date_23_05 + timedelta(minutes=i) for i in range(24 * 60 + 1)]
+
 
 for fase in ["A", "B", "C"]:
     dados = st.session_state[f"valores_{fase}"]
     
-    # Lógica para o eixo X
+    # Define o modo do gráfico conforme o dia selecionado
+    mode = "lines+markers" if dia_escolhido == "Dia Atual" else "lines"
+    
+    # Lógica para o eixo X e Y
     if dia_escolhido == "Dia Atual":
         x_values = dados["timestamp"]
-        y_values = dados[grafico_selecionado.lower().replace(" ", "_")]
-        mode = "lines+markers"
-        fig.add_trace(go.Scatter(
-            x=x_values,
-            y=y_values,
-            mode=mode,
-            name=f"Fase {fase}",
-            line=dict(color=cores[fase])
-        ))
+        y_values = dados[chave_de_dados[grafico_selecionado]]
     else:  # Dia Anterior
         x_values = dfs[fase]["Timestamp"]
-        y_values = dfs[fase][colunas[fase][grafico_selecionado.lower().replace(" ", "_")]]
-        mode = "lines"
-        fig.add_trace(go.Scatter(
-            x=x_values,
-            y=y_values,
-            mode=mode,
-            name=f"Fase {fase}",
-            line=dict(color=cores[fase])
-        ))
+        y_values = dfs[fase][colunas[fase][chave_de_dados[grafico_selecionado]]]
 
-    # Configura o layout do gráfico
-    if grafico_selecionado == "Tensão":
-        fig.update_layout(title="Tensão nas Fases", yaxis_title="Tensão (V)", yaxis=dict(range=[200, 250]))
-    elif grafico_selecionado == "Corrente":
-        fig.update_layout(title="Corrente nas Fases", yaxis_title="Corrente (A)")
-    elif grafico_selecionado == "Potência Ativa":
-        fig.update_layout(title="Potência Ativa nas Fases", yaxis_title="Potência Ativa (W)")
+    fig.add_trace(go.Scatter(
+        x=x_values,
+        y=y_values,
+        mode=mode,
+        name=f"Fase {fase}",
+        line=dict(color=cores[fase])
+    ))
 
+# Configura o layout do gráfico com lógica condicional para o eixo X
 fig.update_layout(
     xaxis_title="Horário",
     xaxis_tickformat='%H:%M',
-    xaxis=dict(
-        tickmode='array',
-        tickvals=horarios_24h,
-        ticktext=[f'{h.hour:02d}:00' for h in horarios_24h],
-        range=[date_23_05, date_23_05 + timedelta(days=1)],
-        showgrid=True,
-        gridcolor='rgba(128,128,128,0.2)'
-    ),
     height=450,
     template="simple_white"
 )
+
+# Configurações do eixo Y com base no gráfico selecionado
+if grafico_selecionado == "Tensão":
+    fig.update_layout(title="Tensão nas Fases", yaxis_title="Tensão (V)", yaxis=dict(range=[200, 250]))
+elif grafico_selecionado == "Corrente":
+    fig.update_layout(title="Corrente nas Fases", yaxis_title="Corrente (A)")
+elif grafico_selecionado == "Potência Ativa":
+    fig.update_layout(title="Potência Ativa nas Fases", yaxis_title="Potência Ativa (W)")
+
+# Configurações dinâmicas para o eixo X
+if dia_escolhido == "Dia Atual":
+    fig.update_layout(
+        xaxis=dict(
+            tickmode='array',
+            tickvals=[date_23_05 + timedelta(hours=h) for h in range(25)], 
+            ticktext=[f'{h:02d}:00' for h in range(25)],
+            range=[date_23_05, date_23_05 + timedelta(days=1)],
+            showgrid=True,
+            gridcolor='rgba(128,128,128,0.2)'
+        )
+    )
+else: # Dia Anterior
+    fig.update_layout(
+        xaxis=dict(
+            showgrid=True,
+            gridcolor='rgba(128,128,128,0.2)'
+        )
+    )
+
 
 st.plotly_chart(fig, use_container_width=True)
