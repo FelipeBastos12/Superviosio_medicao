@@ -226,10 +226,18 @@ grafico_selecionado = st.radio("Selecione grandeza para o gráfico:", ("Tensão"
 fig = go.Figure()
 cores = {"A": "#2980b9", "B": "#e67e22", "C": "#27ae60"}
 
+# Mapeamento para evitar KeyError
+chave_grafico = {
+    "Tensão": "tensao",
+    "Corrente": "corrente",
+    "Potência Ativa": "potencia"
+}
+
 for fase in ["A", "B", "C"]:
     dados = dados_grafico[fase]
+    chave = chave_grafico[grafico_selecionado]
     fig.add_trace(go.Scatter(
-        y=dados[grafico_selecionado.lower()],
+        y=dados[chave],
         mode='lines+markers' if dia_escolhido == "Dia Atual" else 'lines',
         name=f"Fase {fase}",
         line=dict(color=cores[fase])
