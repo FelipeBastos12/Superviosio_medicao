@@ -103,24 +103,23 @@ for fase in ["A", "B", "C"]:
         st.session_state[f"valores_{fase}"]["potencia"].append(float(potencia))
         st.session_state[f"valores_{fase}"]["potencia"] = st.session_state[f"valores_{fase}"]["potencia"][-300:]
 
-# --- Função para downsampling ---
-def downsample(lista, max_pontos=500):
-    n = len(lista)
-    if n <= max_pontos:
-        return lista
-    passo = n // max_pontos
-    return [lista[i] for i in range(0, n, passo)]
-
 # --- Dados para o gráfico (depende só do seletor dia_escolhido) ---
 def get_dados_para_grafico(fase, dia):
     if dia == "Dia Atual":
+        # Usa o buffer do session_state
         return st.session_state[f"valores_{fase}"]
     else:
+        # Dia Anterior: pega da planilha inteira e converte para listas
         df = dfs[fase]
-        tensao = downsample(df[colunas[fase]["tensao"]].astype(float).tolist())
-        corrente = downsample(df[colunas[fase]["corrente"]].astype(float).tolist())
-        potencia = downsample(df[colunas[fase]["potencia"]].astype(float).tolist())
-        return {"tensao": tensao, "corrente": corrente, "potencia": potencia}
+        tensao = df[colunas[fase]["tensao"]].astype(float).tolist() if colunas[fase]["tensao"] in df.columns else []
+        corrente = df[colunas[fase]["corrente"]].astype(float).tolist() if colunas[fase]["corrente"] in df.columns else []
+        potencia = df[colunas[fase]["potencia"]].astype(float).tolist() if colunas[fase]["potencia"] in df.columns else []
+        
+        return {
+            "tensao": tensao,
+            "corrente": corrente,
+            "potencia": potencia
+        }
 
 dados_grafico = {fase: get_dados_para_grafico(fase, dia_escolhido) for fase in ["A", "B", "C"]}
 
