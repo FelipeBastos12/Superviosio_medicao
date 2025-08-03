@@ -50,9 +50,6 @@ dfs = {fase: load_and_clean_csv(path) for fase, path in PATHS.items()}
 # --- CONFIGURAÇÃO DE PÁGINA ---
 st.set_page_config(page_title="Supervisório LAT Trifásico", layout="wide")
 
-# --- SELETOR DE DIA (AFETA SÓ O GRÁFICO) ---
-dia_escolhido = st.radio("Selecionar dia para visualização do gráfico:", ("Dia Atual", "Dia Anterior"))
-
 # --- AUTOREFRESH SEMPRE RODANDO PARA LEITURAS DOS VISORES ---
 st_autorefresh(interval=REFRESH_INTERVAL_MS, limit=None, key="auto_refresh")
 
@@ -120,8 +117,6 @@ def get_dados_para_grafico(fase, dia):
             "corrente": corrente,
             "potencia": potencia
         }
-
-dados_grafico = {fase: get_dados_para_grafico(fase, dia_escolhido) for fase in ["A", "B", "C"]}
 
 # --- Últimos valores para visores (sempre do dia atual) ---
 valores_tensao = {}
@@ -220,35 +215,43 @@ with row2_col1:
 with row2_col2:
     visor_fases("Frequência", valores_frequencia, "Hz")
 
-# --- Gráfico dinâmico ---
+# --- Seletor lado a lado com gráfico ---
 grafico_selecionado = st.radio("Selecione grandeza para o gráfico:", ("Tensão", "Corrente", "Potência Ativa"))
 
-fig = go.Figure()
-cores = {"A": "#2980b9", "B": "#e67e22", "C": "#27ae60"}
+col_selector, col_grafico = st.columns([1, 6])
 
-# Mapeamento para evitar KeyError
-chave_grafico = {
-    "Tensão": "tensao",
-    "Corrente": "corrente",
-    "Potência Ativa": "potencia"
-}
+with col_selector:
+    dia_escolhido = st.radio("Selecionar dia para visualização do gráfico:", ("Dia Atual", "Dia Anterior"))
 
-for fase in ["A", "B", "C"]:
-    dados = dados_grafico[fase]
-    chave = chave_grafico[grafico_selecionado]
-    fig.add_trace(go.Scatter(
-        y=dados[chave],
-        mode='lines+markers' if dia_escolhido == "Dia Atual" else 'lines',
-        name=f"Fase {fase}",
-        line=dict(color=cores[fase])
-    ))
+with col_grafico:
+    dados_grafico = {fase: get_dados_para_grafico(fase, dia_escolhido) for fase in ["A", "B", "C"]}
 
-fig.update_layout(
-    title=f"{grafico_selecionado} nas Fases",
-    yaxis_title=f"{grafico_selecionado} ({'V' if grafico_selecionado == 'Tensão' else 'A' if grafico_selecionado == 'Corrente' else 'W'})",
-    xaxis_title="Amostras",
-    yaxis=dict(range=[0, 500] if grafico_selecionado == "Tensão" else None),
-    height=450,
-    template="simple_white"
-)
-st.plotly_chart(fig, use_container_width=True)
+    fig = go.Figure()
+    cores = {"A": "#2980b9", "B": "#e67e22", "C": "#27ae60"}
+
+    chave_grafico = {
+        "Tensão": "tensao",
+        "Corrente": "corrente",
+        "Potência Ativa": "potencia"
+    }
+
+    for fase in ["A", "B", "C"]:
+        dados = dados_grafico[fase]
+        chave = chave_grafico[grafico_selecionado]
+        modo = 'lines+markers' if dia_escolhido == "Dia Atual" else 'lines'
+        fig.add_trace(go.Scatter(
+            y=dados[chave],
+            mode=modo,
+            name=f"Fase {fase}",
+            line=dict(color=cores[fase])
+        ))
+
+    fig.update_layout(
+        title=f"{grafico_selecionado} nas Fases",
+        yaxis_title=f"{grafico_selecionado} ({'V' if grafico_selecionado == 'Tensão' else 'A' if grafico_selecionado == 'Corrente' else 'W'})",
+        xaxis_title="Amostras",
+        yaxis=dict(range=[0, 500] if grafico_selecionado == "Tensão" else None),
+        height=450,
+        template="simple_white"
+    )
+    st.plotly_chart(fig, use_container_width=True)
