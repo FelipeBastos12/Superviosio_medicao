@@ -57,7 +57,7 @@ col_logo, col_titulo = st.columns([1, 5])
 with col_logo:
     st.image("FDJ_engenharia.jpg", width=200)  # Use a imagem que você já adicionou
 with col_titulo:
-    st.markdown("<h1 style='padding-top: 20px;'>Supervisório de Medição Elétrica</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='padding-top: 50px;'>Supervisório de Medição Elétrica</h1>", unsafe_allow_html=True)
 
 
 # --- AUTOREFRESH ---
@@ -260,6 +260,7 @@ fig.update_layout(
     template="simple_white"
 )
 st.plotly_chart(fig, use_container_width=True)
+
 
 
 
