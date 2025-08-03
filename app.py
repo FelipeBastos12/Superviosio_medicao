@@ -11,33 +11,20 @@ from streamlit_autorefresh import st_autorefresh
 # --- CONFIGURAÇÕES ---
 
 PATHS = {
-
     "A": "Planilha_242_LAT - FASEA.csv",
-
     "B": "Planilha_242_LAT - FASEB.csv",
-
     "C": "Planilha_242_LAT - FASEC.csv"
-
 }
 
 REFRESH_INTERVAL_MS = 500
-
-
-
 # --- NOMES DAS COLUNAS POR FASE ---
 
 colunas = {
-
     "A": {
-
         "tensao": "Tensao_Fase_ A",
-
         "corrente": "Corrente_Fase_A",
-
         "potencia": "Potencia_Ativa_Fase_A",
-
-        "frequencia": "Frequencia_Fase_A"
-
+        "frequencia": "Frequencia_Fase_A"
     },
 
     "B": {
@@ -575,4 +562,5 @@ fig.update_layout(
 )
 
 st.plotly_chart(fig, use_container_width=True)
+
 
