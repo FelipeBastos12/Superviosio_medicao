@@ -115,106 +115,93 @@ for fase in ["A", "B", "C"]:
         st.session_state[f"valores_{fase}"]["potencia"] = st.session_state[f"valores_{fase}"]["potencia"][-50:]
 
 # --- VISUALIZAÇÃO AGRUPADA DOS VISORS ---
-# A nova estrutura de colunas deve ser por grandeza
-col_tensao, col_corrente, col_potencia, col_frequencia = st.columns(4)
-
 def cor_tensao(valor):
     return "#2ecc71" if valor >= 210 else "#c0392b"
     
-def criar_visor_agrupado(titulo, unidade, cor_fundo, cor_texto, dados_por_fase, cor_fase_A="#2ecc71", cor_fase_B="#2ecc71", cor_fase_C="#2ecc71"):
-    """Função para criar um único visor grande com os dados das 3 fases"""
-    conteudo_visor = ""
-    conteudo_visor += f"<h4 style='text-align: center;'>{titulo}</h4>"
+def criar_visor_agrupado_interno(titulo, unidade, cor_fundo):
+    """
+    Função para criar um único visor grande com os dados das 3 fases dentro,
+    como mostrado na imagem.
+    """
+    conteudo_visor = f"<h4 style='text-align: center;'>{titulo}</h4>"
+    conteudo_corpo = ""
     for fase in ["A", "B", "C"]:
-        valor = dados_por_fase[fase][-1] if dados_por_fase[fase] else None
+        valor = None
+        cor_texto_fase = "#ffffff"
+
+        # Tensão
+        if titulo == "Tensão":
+            valor = st.session_state[f"valores_{fase}"]["tensao"][-1] if st.session_state[f"valores_{fase}"]["tensao"] else None
+            if valor is not None:
+                cor_texto_fase = cor_tensao(valor)
+                valor = f"{valor:.1f}"
+
+        # Corrente
+        elif titulo == "Corrente":
+            valor = st.session_state[f"valores_{fase}"]["corrente"][-1] if st.session_state[f"valores_{fase}"]["corrente"] else None
+            if valor is not None:
+                valor = f"{valor:.2f}"
+
+        # Potência Ativa
+        elif titulo == "Potência Ativa":
+            valor = st.session_state[f"valores_{fase}"]["potencia"][-1] if st.session_state[f"valores_{fase}"]["potencia"] else None
+            if valor is not None:
+                valor = f"{valor:.2f}"
+                
+        # Frequência (pega o valor da Fase A e aplica para B e C)
+        elif titulo == "Frequência":
+            try:
+                if fase == "A":
+                    valor = dfs["A"].iloc[st.session_state["index_A"]-1].get(colunas["A"]["frequencia"], None)
+                    st.session_state['frequencia_ultima'] = valor
+                else:
+                    valor = st.session_state.get('frequencia_ultima', None)
+            except:
+                valor = None
+            if valor is not None:
+                valor = f"{float(valor):.2f}"
+
         if valor is not None:
-            # Aplica a cor condicional para a tensão
-            cor_atual = cor_tensao(valor) if titulo == "Tensão" else cor_texto
-            conteudo_visor += f"""
+            conteudo_corpo += f"""
                 <div style='
-                    color: {cor_atual};
+                    color: {cor_texto_fase};
                     padding: 5px;
                     text-align: left;
                     font-size: 20px;
                     font-weight: bold;
                 '>
-                    Fase {fase}: {valor:.2f} {unidade}
+                    Fase {fase}: {valor} {unidade}
                 </div>
             """
-
-    # Retorna o visor completo dentro de um container
+    
+    # Monta o visor completo dentro de um container principal
     return f"""
     <div style='
         background-color: {cor_fundo};
-        color: {cor_texto};
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 10px;
-    '>
-        {conteudo_visor}
-    </div>
-    """
-
-with col_tensao:
-    # Coleta os últimos valores de tensão de cada fase
-    dados_tensao = {fase: st.session_state[f"valores_{fase}"]["tensao"] for fase in ["A", "B", "C"]}
-    # Cria o visor agrupado de tensão
-    st.markdown(criar_visor_agrupado("Tensão", "V", "#2c3e50", "#ffffff", dados_tensao), unsafe_allow_html=True)
-with col_corrente:
-    # Coleta os últimos valores de corrente de cada fase
-    dados_corrente = {fase: st.session_state[f"valores_{fase}"]["corrente"] for fase in ["A", "B", "C"]}
-    # Cria o visor agrupado de corrente
-    st.markdown(criar_visor_agrupado("Corrente", "A", "#2c3e50", "#ffffff", dados_corrente), unsafe_allow_html=True)
-with col_potencia:
-    # Coleta os últimos valores de potência de cada fase
-    dados_potencia = {fase: st.session_state[f"valores_{fase}"]["potencia"] for fase in ["A", "B", "C"]}
-    # Cria o visor agrupado de potência
-    st.markdown(criar_visor_agrupado("Potência Ativa", "W", "#2c3e50", "#ffffff", dados_potencia), unsafe_allow_html=True)
-with col_frequencia:
-    # Coleta os últimos valores de frequência
-    # Lembre-se que seu código original só extrai frequência para a Fase A
-    valor_frequencia_A = dfs["A"].iloc[st.session_state["index_A"]-1].get(colunas["A"]["frequencia"], None)
-    valor_frequencia_A = float(valor_frequencia_A) if valor_frequencia_A is not None else None
-    
-    # Cria o visor agrupado de frequência
-    st.markdown(f"""
-    <div style='
-        background-color: #2c3e50;
         color: #ffffff;
         padding: 20px;
         border-radius: 10px;
         margin-bottom: 10px;
     '>
-        <h4 style='text-align: center;'>Frequência</h4>
-        <div style='
-            color: #2ecc71;
-            padding: 5px;
-            text-align: left;
-            font-size: 20px;
-            font-weight: bold;
-        '>
-            Fase A: {valor_frequencia_A:.2f} Hz
-        </div>
-        <div style='
-            color: #2ecc71;
-            padding: 5px;
-            text-align: left;
-            font-size: 20px;
-            font-weight: bold;
-        '>
-            Fase B: {valor_frequencia_A:.2f} Hz
-        </div>
-        <div style='
-            color: #2ecc71;
-            padding: 5px;
-            text-align: left;
-            font-size: 20px;
-            font-weight: bold;
-        '>
-            Fase C: {valor_frequencia_A:.2f} Hz
-        </div>
+        {conteudo_visor}
+        {conteudo_corpo}
     </div>
-    """, unsafe_allow_html=True)
+    """
+
+col_tensao, col_corrente, col_potencia, col_frequencia = st.columns(4)
+
+with col_tensao:
+    st.markdown(criar_visor_agrupado_interno("Tensão", "V", "#2c3e50"), unsafe_allow_html=True)
+
+with col_corrente:
+    st.markdown(criar_visor_agrupado_interno("Corrente", "A", "#2c3e50"), unsafe_allow_html=True)
+    
+with col_potencia:
+    st.markdown(criar_visor_agrupado_interno("Potência Ativa", "W", "#2c3e50"), unsafe_allow_html=True)
+    
+with col_frequencia:
+    st.markdown(criar_visor_agrupado_interno("Frequência", "Hz", "#2c3e50"), unsafe_allow_html=True)
+
 
 # --- GRÁFICOS DINÂMICOS ---
 grafico_selecionado = st.radio("📈 Selecione o gráfico a ser exibido:", ("Tensão", "Corrente", "Potência Ativa"))
