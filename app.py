@@ -1,177 +1,79 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objs as go
-from streamlit_autorefresh import st_autorefresh
 from datetime import datetime, timedelta
+from streamlit_autorefresh import st_autorefresh
 
 # --- CONFIGURAÇÕES ---
-PATHS = {
-    "A": "Planilha_242_LAT - FASEA.csv",
-    "B": "Planilha_242_LAT - FASEB.csv",
-    "C": "Planilha_242_LAT - FASEC.csv"
-}
-REFRESH_INTERVAL_MS = 500
+st.set_page_config(layout="wide")
+st.title("Supervisão de Medições Elétricas")
 
-# --- NOMES DAS COLUNAS POR FASE ---
-colunas = {
-    "A": {
-        "tensao": "Tensao_Fase_ A",
-        "corrente": "Corrente_Fase_A",
-        "potencia": "Potencia_Ativa_Fase_A",
-        "frequencia": "Frequencia_Fase_A"
-    },
-    "B": {
-        "tensao": "Tensao_Fase_ B",
-        "corrente": "Corrente_Fase_B",
-        "potencia": "Potencia_Ativa_Fase_B",
-        "frequencia": "Frequencia_Fase_B"
-    },
-    "C": {
-        "tensao": "Tensao_Fase_C",
-        "corrente": "Corrente_Fase_C",
-        "potencia": "Potencia_Ativa_Fase_C",
-        "frequencia": "Frequencia_Fase_C"
-    }
-}
+# --- CARREGAMENTO DA IMAGEM DE TOPO ---
+st.image("06cbe711-95b6-496a-904a-c3ca92eefff9.png", use_column_width=True)
 
-# --- LEITURA E LIMPEZA ---
+# --- FUNÇÕES DE LEITURA ---
 @st.cache_data
-def load_and_clean_csv(path):
-    df = pd.read_csv(path)
-    for col in df.columns:
-        df[col] = df[col].astype(str).str.replace(",", ".", regex=False)
-        try:
-            df[col] = df[col].astype(float)
-        except ValueError:
-            pass
-    return df
-
-dfs = {fase: load_and_clean_csv(path) for fase, path in PATHS.items()}
-
-# --- CONFIGURAÇÃO DE PÁGINA ---
-st.set_page_config(page_title="Supervisório LAT Trifásico", layout="wide")
-
-col_logo, col_titulo = st.columns([1, 5])
-with col_logo:
-    st.image("FDJ_engenharia.jpg", width=500)
-with col_titulo:
-    st.markdown("<h1 style='padding-top: 90px;'>Supervisório de Medição Elétrica</h1>", unsafe_allow_html=True)
-
-# --- SELETOR DE DIA ---
-modo = st.radio("Selecione o dia:", ["Tempo real", "Dia anterior"], horizontal=True)
-
-if modo == "Tempo real":
-    st_autorefresh(interval=REFRESH_INTERVAL_MS, limit=None, key="auto_refresh")
-
-    for fase in ["A", "B", "C"]:
-        if f"index_{fase}" not in st.session_state:
-            st.session_state[f"index_{fase}"] = 0
-        if f"valores_{fase}" not in st.session_state:
-            st.session_state[f"valores_{fase}"] = {
-                "tensao": [], "corrente": [], "potencia": []
-            }
-
-    for fase in ["A", "B", "C"]:
-        df = dfs[fase]
-        idx = st.session_state[f"index_{fase}"]
-        if idx >= len(df):
-            st.session_state[f"index_{fase}"] = 0
-            idx = 0
-            st.success(f"Reiniciando dados da fase {fase}")
-        row = df.iloc[idx]
-        st.session_state[f"index_{fase}"] += 1
-
-        tensao = row.get(colunas[fase]["tensao"], None)
-        corrente = row.get(colunas[fase]["corrente"], None)
-        potencia = row.get(colunas[fase]["potencia"], None)
-        frequencia = row.get(colunas[fase]["frequencia"], None)
-
-        if corrente == 0:
-            corrente = st.session_state.get(f"corrente_anterior_{fase}", corrente)
-        else:
-            st.session_state[f"corrente_anterior_{fase}"] = corrente
-
-        if tensao is not None:
-            st.session_state[f"valores_{fase}"]["tensao"].append(float(tensao))
-            st.session_state[f"valores_{fase}"]["tensao"] = st.session_state[f"valores_{fase}"]["tensao"][-50:]
-        if corrente is not None:
-            st.session_state[f"valores_{fase}"]["corrente"].append(float(corrente))
-            st.session_state[f"valores_{fase}"]["corrente"] = st.session_state[f"valores_{fase}"]["corrente"][-50:]
-        if potencia is not None:
-            st.session_state[f"valores_{fase}"]["potencia"].append(float(potencia))
-            st.session_state[f"valores_{fase}"]["potencia"] = st.session_state[f"valores_{fase}"]["potencia"][-50:]
-
-    valores_tensao = {}
-    valores_corrente = {}
-    valores_potencia = {}
-    valores_frequencia = {}
-
-    for fase in ["A", "B", "C"]:
-        df = dfs[fase]
-        idx = st.session_state[f"index_{fase}"] - 1
-        idx = max(idx, 0)
-        row = df.iloc[idx]
-        valores_tensao[fase] = float(row.get(colunas[fase]["tensao"], 0))
-        valores_corrente[fase] = float(row.get(colunas[fase]["corrente"], 0))
-        valores_potencia[fase] = float(row.get(colunas[fase]["potencia"], 0))
-        valores_frequencia[fase] = float(row.get(colunas[fase]["frequencia"], 0))
-
-    def visor_fases(label, valores_por_fase, unidade, cor_fundo="#2c3e50"):
-        cores_texto = {
-            "A": "#2ecc71" if (label == "Tensão" and valores_por_fase["A"] >= 210) or label != "Tensão" else "#c0392b",
-            "B": "#2ecc71" if (label == "Tensão" and valores_por_fase["B"] >= 210) or label != "Tensão" else "#c0392b",
-            "C": "#2ecc71" if (label == "Tensão" and valores_por_fase["C"] >= 210) or label != "Tensão" else "#c0392b",
-        }
-        st.markdown(f"""<div style='background-color: {cor_fundo}; padding: 15px; border-radius: 15px; margin-bottom: 15px;'>
-            <h3 style='color:white; text-align:center;'>{label}</h3>
-            <div style='display: flex; flex-direction: column; gap: 10px;'>""" +
-            "".join([
-                f"""<div style='background-color: #34495e; color: {cores_texto[fase]}; padding: 15px; border-radius: 10px;
-                text-align: center; font-size: 20px; font-weight: bold;'>Fase {fase}: {valores_por_fase[fase]:.2f} {unidade}</div>"""
-                for fase in ["A", "B", "C"]
-            ]) + "</div></div>", unsafe_allow_html=True)
-
-    row1_col1, row1_col2 = st.columns(2)
-    row2_col1, row2_col2 = st.columns(2)
-    with row1_col1:
-        visor_fases("Tensão", valores_tensao, "V")
-    with row1_col2:
-        visor_fases("Corrente", valores_corrente, "A")
-    with row2_col1:
-        visor_fases("Potência Ativa", valores_potencia, "W")
-    with row2_col2:
-        visor_fases("Frequência", valores_frequencia, "Hz")
-
-    grafico_selecionado = st.radio("", ("Tensão", "Corrente", "Potência Ativa"))
-    fig = go.Figure()
-    cores = {"A": "#2980b9", "B": "#e67e22", "C": "#27ae60"}
-
-    for fase in ["A", "B", "C"]:
-        dados = st.session_state[f"valores_{fase}"]
-        y = dados[grafico_selecionado.lower().replace(" ", "")]
-        fig.add_trace(go.Scatter(y=y, mode='lines+markers', name=f"Fase {fase}", line=dict(color=cores[fase])))
-
-    fig.update_layout(title=f"{grafico_selecionado} nas Fases", yaxis_title=grafico_selecionado, xaxis_title="Amostras", height=450)
-    st.plotly_chart(fig, use_container_width=True)
-
-elif modo == "Dia anterior":
-    st.subheader("Visualização do dia anterior (gráfico por hora)")
-    grafico_selecionado = st.radio("Selecione o gráfico:", ("Tensão", "Corrente", "Potência Ativa"))
-
-    fig = go.Figure()
-    cores = {"A": "#2980b9", "B": "#e67e22", "C": "#27ae60"}
-
-    for fase in ["A", "B", "C"]:
-        df = dfs[fase].copy()
+def carregar_dados():
+    fases = ["A", "B", "C"]
+    dfs = {}
+    for fase in fases:
+        df = pd.read_csv(f"Planilha_242_LAT - FASE{fase}.csv")
         df["Data"] = pd.to_datetime(df["Data"], errors='coerce').dt.date
-        df["Hora"] = df["Horário"].astype(str)
-        df = df[df["Data"] == ontem]  # só o dia anterior
+        df["Horário"] = pd.to_datetime(df["Horário"], errors='coerce').dt.time
+        df["Hora"] = pd.to_datetime(df["Horário"], format="%H:%M:%S", errors="coerce").apply(lambda x: x.strftime("%H:%M:%S") if pd.notnull(x) else "")
+        dfs[fase] = df
+    return dfs
 
-        if df.empty:
-            continue
+dfs = carregar_dados()
 
-        y = df[colunas[fase][grafico_selecionado.lower().replace(" ", "")]]
-        fig.add_trace(go.Scatter(x=df["Hora"], y=y, mode='lines+markers', name=f"Fase {fase}", line=dict(color=cores[fase])))
+# --- PARÂMETROS DE INTERFACE ---
+modo = st.radio("Selecione o modo de exibição:", ["Tempo real (Dia atual)", "Dia anterior"], horizontal=True)
 
-    fig.update_layout(title=f"{grafico_selecionado} no dia {ontem}", xaxis_title="Hora", yaxis_title=grafico_selecionado, height=500)
-    st.plotly_chart(fig, use_container_width=True)
+# --- CONFIGURAÇÃO DE TEMPO ---
+hoje = datetime.now().date()
+ontem = hoje - timedelta(days=1)
+
+# --- LOOP PRINCIPAL ---
+colunas = {
+    "Tensão [V]": ["Tensao_Fase_ A", "Tensao_Fase_ B", "Tensao_Fase_C"],
+    "Corrente [A]": ["Corrente_Fase_A", "Corrente_Fase_B", "Corrente_Fase_C"],
+    "Potência Ativa [W]": ["Potencia_Ativa_Fase_A", "Potencia_Ativa_Fase_B", "Potencia_Ativa_Fase_C"],
+    "Fator de Potência": ["fator_De_Potencia_Fase_A", "fator_De_Potencia_Fase_B", "fator_De_Potencia_Fase_C"]
+}
+
+# --- SELEÇÃO DE TEMPO ---
+if modo == "Tempo real (Dia atual)":
+    st_autorefresh(interval=5000, limit=100000, key="datarefresh")
+    tempo_real = True
+else:
+    tempo_real = False
+
+# --- VISUALIZAÇÃO EM 2x2 ---
+graficos = list(colunas.keys())
+
+row1 = st.columns(2)
+row2 = st.columns(2)
+
+for idx, (titulo, colunas_fase) in enumerate(colunas.items()):
+    dataframes_plot = []
+    for i, fase in enumerate(["A", "B", "C"]):
+        df = dfs[fase].copy()
+        if tempo_real:
+            df = df[df["Data"] == hoje]
+            x = df["Hora"]
+        else:
+            df = df[df["Data"] == ontem]
+            x = df["Horário"].astype(str)
+
+        y = df[colunas_fase[i]] if colunas_fase[i] in df.columns else None
+        if y is not None:
+            trace = go.Scatter(x=x, y=y, name=f"Fase {fase}", mode='lines')
+            dataframes_plot.append(trace)
+
+    layout = go.Layout(title=titulo, xaxis=dict(title="Hora"), yaxis=dict(title=titulo), height=350)
+    fig = go.Figure(data=dataframes_plot, layout=layout)
+
+    if idx < 2:
+        row1[idx].plotly_chart(fig, use_container_width=True)
+    else:
+        row2[idx - 2].plotly_chart(fig, use_container_width=True)
