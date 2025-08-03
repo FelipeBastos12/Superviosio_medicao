@@ -62,6 +62,8 @@ for fase in ["A", "B", "C"]:
         st.session_state[f"valores_{fase}"] = {
             "tensao": [], "corrente": [], "potencia": []
         }
+    if f"corrente_anterior_{fase}" not in st.session_state:
+        st.session_state[f"corrente_anterior_{fase}"] = 0.0
 
 # --- VISOR PERSONALIZADO ---
 def visor(valor, label, cor_fundo, cor_texto):
@@ -117,50 +119,38 @@ for fase in ["A", "B", "C"]:
 # --- VISUALIZAÇÃO AGRUPADA DOS VISORS ---
 def cor_tensao(valor):
     return "#2ecc71" if valor >= 210 else "#c0392b"
-    
+
 def criar_visor_agrupado_interno(titulo, unidade, cor_fundo):
-    """
-    Função para criar um único visor grande com os dados das 3 fases dentro,
-    como mostrado na imagem.
-    """
-    conteudo_visor = f"<h4 style='text-align: center;'>{titulo}</h4>"
     conteudo_corpo = ""
     for fase in ["A", "B", "C"]:
         valor = None
         cor_texto_fase = "#ffffff"
-
-        # Tensão
+        
         if titulo == "Tensão":
-            valor = st.session_state[f"valores_{fase}"]["tensao"][-1] if st.session_state[f"valores_{fase}"]["tensao"] else None
-            if valor is not None:
-                cor_texto_fase = cor_tensao(valor)
-                valor = f"{valor:.1f}"
-
-        # Corrente
+            valor_num = st.session_state[f"valores_{fase}"]["tensao"][-1] if st.session_state[f"valores_{fase}"]["tensao"] else None
+            if valor_num is not None:
+                cor_texto_fase = cor_tensao(valor_num)
+                valor = f"{valor_num:.1f}"
         elif titulo == "Corrente":
-            valor = st.session_state[f"valores_{fase}"]["corrente"][-1] if st.session_state[f"valores_{fase}"]["corrente"] else None
-            if valor is not None:
-                valor = f"{valor:.2f}"
-
-        # Potência Ativa
+            valor_num = st.session_state[f"valores_{fase}"]["corrente"][-1] if st.session_state[f"valores_{fase}"]["corrente"] else None
+            if valor_num is not None:
+                valor = f"{valor_num:.2f}"
         elif titulo == "Potência Ativa":
-            valor = st.session_state[f"valores_{fase}"]["potencia"][-1] if st.session_state[f"valores_{fase}"]["potencia"] else None
-            if valor is not None:
-                valor = f"{valor:.2f}"
-                
-        # Frequência (pega o valor da Fase A e aplica para B e C)
+            valor_num = st.session_state[f"valores_{fase}"]["potencia"][-1] if st.session_state[f"valores_{fase}"]["potencia"] else None
+            if valor_num is not None:
+                valor = f"{valor_num:.2f}"
         elif titulo == "Frequência":
             try:
                 if fase == "A":
-                    valor = dfs["A"].iloc[st.session_state["index_A"]-1].get(colunas["A"]["frequencia"], None)
-                    st.session_state['frequencia_ultima'] = valor
+                    valor_num = dfs["A"].iloc[st.session_state["index_A"]-1].get(colunas["A"]["frequencia"], None)
+                    st.session_state['frequencia_ultima'] = valor_num
                 else:
-                    valor = st.session_state.get('frequencia_ultima', None)
+                    valor_num = st.session_state.get('frequencia_ultima', None)
             except:
-                valor = None
-            if valor is not None:
-                valor = f"{float(valor):.2f}"
-
+                valor_num = None
+            if valor_num is not None:
+                valor = f"{float(valor_num):.2f}"
+        
         if valor is not None:
             conteudo_corpo += f"""
                 <div style='
@@ -174,8 +164,7 @@ def criar_visor_agrupado_interno(titulo, unidade, cor_fundo):
                 </div>
             """
     
-    # Monta o visor completo dentro de um container principal
-    return f"""
+    html_final = f"""
     <div style='
         background-color: {cor_fundo};
         color: #ffffff;
@@ -183,10 +172,11 @@ def criar_visor_agrupado_interno(titulo, unidade, cor_fundo):
         border-radius: 10px;
         margin-bottom: 10px;
     '>
-        {conteudo_visor}
+        <h4 style='text-align: center;'>{titulo}</h4>
         {conteudo_corpo}
     </div>
     """
+    return html_final
 
 col_tensao, col_corrente, col_potencia, col_frequencia = st.columns(4)
 
@@ -201,7 +191,6 @@ with col_potencia:
     
 with col_frequencia:
     st.markdown(criar_visor_agrupado_interno("Frequência", "Hz", "#2c3e50"), unsafe_allow_html=True)
-
 
 # --- GRÁFICOS DINÂMICOS ---
 grafico_selecionado = st.radio("📈 Selecione o gráfico a ser exibido:", ("Tensão", "Corrente", "Potência Ativa"))
