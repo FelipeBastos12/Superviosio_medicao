@@ -54,7 +54,7 @@ st.set_page_config(page_title="Supervisório LAT Trifásico", layout="wide")
 st.set_page_config(page_title="Supervisório LAT Trifásico", layout="wide")
 
 # Exibe a imagem no topo
-st.image("6530_-_Eletrica_-_GRUPOS.jpg", width=400)  # ajuste a largura conforme desejar
+st.image("FDJ_engenharia.jpg", width=400)  # ajuste a largura conforme desejar
 st.title("Supervisório de medição elétrica")
 
 # --- AUTOREFRESH ---
@@ -257,6 +257,7 @@ fig.update_layout(
     template="simple_white"
 )
 st.plotly_chart(fig, use_container_width=True)
+
 
 
 
