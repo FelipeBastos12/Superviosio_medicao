@@ -50,40 +50,29 @@ dfs = {fase: load_and_clean_csv(path) for fase, path in PATHS.items()}
 # --- CONFIGURAÇÃO DE PÁGINA ---
 st.set_page_config(page_title="Supervisório LAT Trifásico", layout="wide")
 
-# --- SELETOR DE DIA PARA O GRÁFICO ---
+# --- SELETOR DE DIA (AFETA SÓ O GRÁFICO) ---
 dia_escolhido = st.radio("Selecionar dia para visualização do gráfico:", ("Dia Atual", "Dia Anterior"))
 
-# --- AUTOREFRESH SÓ PARA DIA ATUAL (mantém os dados do dia atual fluindo) ---
-if dia_escolhido == "Dia Atual":
-    st_autorefresh(interval=REFRESH_INTERVAL_MS, limit=None, key="auto_refresh")
+# --- AUTOREFRESH SEMPRE RODANDO PARA LEITURAS DOS VISORES ---
+st_autorefresh(interval=REFRESH_INTERVAL_MS, limit=None, key="auto_refresh")
 
-# --- INICIALIZAÇÃO DE SESSION STATE ---
+# --- INICIALIZAÇÃO DO SESSION STATE ---
 for fase in ["A", "B", "C"]:
     if f"index_{fase}" not in st.session_state:
         st.session_state[f"index_{fase}"] = 0
     if f"valores_{fase}" not in st.session_state:
-        st.session_state[f"valores_{fase}"] = {
-            "tensao": [], "corrente": [], "potencia": []
-        }
+        st.session_state[f"valores_{fase}"] = {"tensao": [], "corrente": [], "potencia": []}
     if f"corrente_anterior_{fase}" not in st.session_state:
         st.session_state[f"corrente_anterior_{fase}"] = 0.0
 
-# --- Layout com logo e título lado a lado ---
+# --- Layout ---
 col_logo, col_titulo = st.columns([1, 5])
 with col_logo:
     st.image("FDJ_engenharia.jpg", width=500)
 with col_titulo:
     st.markdown("<h1 style='padding-top: 90px;'>Supervisório de Medição Elétrica</h1>", unsafe_allow_html=True)
 
-# --- FUNÇÃO DE DOWN-SAMPLING PARA GRÁFICO ---
-def downsample(lista, max_pontos=500):
-    n = len(lista)
-    if n <= max_pontos:
-        return lista
-    passo = n // max_pontos
-    return [lista[i] for i in range(0, n, passo)]
-
-# --- 1) ATUALIZAÇÃO DOS DADOS DOS VISORES (SEMPRE DIA ATUAL) ---
+# --- Atualiza leituras e buffers para os visores (sempre rodando!) ---
 for fase in ["A", "B", "C"]:
     df = dfs[fase]
     idx = st.session_state[f"index_{fase}"]
@@ -99,13 +88,11 @@ for fase in ["A", "B", "C"]:
     potencia = row.get(colunas[fase]["potencia"], None)
     frequencia = row.get(colunas[fase]["frequencia"], None)
 
-    # Corrente zero → mantém anterior
     if corrente == 0:
         corrente = st.session_state.get(f"corrente_anterior_{fase}", corrente)
     else:
         st.session_state[f"corrente_anterior_{fase}"] = corrente
 
-    # Atualiza buffers para o gráfico em tempo real (dia atual)
     if tensao is not None:
         st.session_state[f"valores_{fase}"]["tensao"].append(float(tensao))
         st.session_state[f"valores_{fase}"]["tensao"] = st.session_state[f"valores_{fase}"]["tensao"][-300:]
@@ -116,28 +103,28 @@ for fase in ["A", "B", "C"]:
         st.session_state[f"valores_{fase}"]["potencia"].append(float(potencia))
         st.session_state[f"valores_{fase}"]["potencia"] = st.session_state[f"valores_{fase}"]["potencia"][-300:]
 
-# --- 2) PREPARAÇÃO DOS DADOS PARA O GRÁFICO SEGUNDO DIA ESCOLHIDO ---
+# --- Função para downsampling ---
+def downsample(lista, max_pontos=500):
+    n = len(lista)
+    if n <= max_pontos:
+        return lista
+    passo = n // max_pontos
+    return [lista[i] for i in range(0, n, passo)]
+
+# --- Dados para o gráfico (depende só do seletor dia_escolhido) ---
 def get_dados_para_grafico(fase, dia):
     if dia == "Dia Atual":
-        # usa buffer atualizado para dia atual
         return st.session_state[f"valores_{fase}"]
     else:
-        # Dia Anterior - pega toda planilha com downsampling
         df = dfs[fase]
         tensao = downsample(df[colunas[fase]["tensao"]].astype(float).tolist())
         corrente = downsample(df[colunas[fase]["corrente"]].astype(float).tolist())
         potencia = downsample(df[colunas[fase]["potencia"]].astype(float).tolist())
-        return {
-            "tensao": tensao,
-            "corrente": corrente,
-            "potencia": potencia
-        }
+        return {"tensao": tensao, "corrente": corrente, "potencia": potencia}
 
-dados_grafico = {}
-for fase in ["A", "B", "C"]:
-    dados_grafico[fase] = get_dados_para_grafico(fase, dia_escolhido)
+dados_grafico = {fase: get_dados_para_grafico(fase, dia_escolhido) for fase in ["A", "B", "C"]}
 
-# --- 3) PEGANDO OS ÚLTIMOS VALORES PARA OS VISORES (SEMPRE DIA ATUAL) ---
+# --- Últimos valores para visores (sempre do dia atual) ---
 valores_tensao = {}
 valores_corrente = {}
 valores_potencia = {}
@@ -155,7 +142,6 @@ for fase in ["A", "B", "C"]:
     potencia = row.get(colunas[fase]["potencia"], 0)
     frequencia = row.get(colunas[fase]["frequencia"], 0)
 
-    # Corrente zero mantém anterior
     if corrente == 0:
         corrente = st.session_state.get(f"corrente_anterior_{fase}", corrente)
     else:
@@ -166,7 +152,7 @@ for fase in ["A", "B", "C"]:
     valores_potencia[fase] = float(potencia)
     valores_frequencia[fase] = float(frequencia)
 
-# --- FUNÇÃO PARA EXIBIR OS VISORES AGRUPADOS ---
+# --- Função para exibir os visores agrupados ---
 def visor_fases(label, valores_por_fase, unidade, cor_fundo="#2c3e50"):
     cores_texto = {
         "A": "#2ecc71" if (label == "Tensão" and valores_por_fase["A"] >= 210) or label != "Tensão" else "#c0392b",
@@ -222,7 +208,7 @@ def visor_fases(label, valores_por_fase, unidade, cor_fundo="#2c3e50"):
     </div>
     """, unsafe_allow_html=True)
 
-# --- EXIBIÇÃO DOS VISORES ---
+# --- Exibe visores ---
 row1_col1, row1_col2 = st.columns(2)
 row2_col1, row2_col2 = st.columns(2)
 
@@ -235,7 +221,7 @@ with row2_col1:
 with row2_col2:
     visor_fases("Frequência", valores_frequencia, "Hz")
 
-# --- GRÁFICOS DINÂMICOS ---
+# --- Gráfico dinâmico ---
 grafico_selecionado = st.radio("Selecione grandeza para o gráfico:", ("Tensão", "Corrente", "Potência Ativa"))
 
 fig = go.Figure()
@@ -243,33 +229,18 @@ cores = {"A": "#2980b9", "B": "#e67e22", "C": "#27ae60"}
 
 for fase in ["A", "B", "C"]:
     dados = dados_grafico[fase]
-    if grafico_selecionado == "Tensão":
-        fig.add_trace(go.Scatter(
-            y=dados["tensao"],
-            mode='lines+markers' if dia_escolhido == "Dia Atual" else 'lines',
-            name=f"Fase {fase}",
-            line=dict(color=cores[fase])
-        ))
-        fig.update_layout(title="Tensão nas Fases", yaxis_title="Tensão (V)", yaxis=dict(range=[0,500]))
-    elif grafico_selecionado == "Corrente":
-        fig.add_trace(go.Scatter(
-            y=dados["corrente"],
-            mode='lines+markers' if dia_escolhido == "Dia Atual" else 'lines',
-            name=f"Fase {fase}",
-            line=dict(color=cores[fase])
-        ))
-        fig.update_layout(title="Corrente nas Fases", yaxis_title="Corrente (A)")
-    elif grafico_selecionado == "Potência Ativa":
-        fig.add_trace(go.Scatter(
-            y=dados["potencia"],
-            mode='lines+markers' if dia_escolhido == "Dia Atual" else 'lines',
-            name=f"Fase {fase}",
-            line=dict(color=cores[fase])
-        ))
-        fig.update_layout(title="Potência Ativa nas Fases", yaxis_title="Potência Ativa (W)")
+    fig.add_trace(go.Scatter(
+        y=dados[grafico_selecionado.lower()],
+        mode='lines+markers' if dia_escolhido == "Dia Atual" else 'lines',
+        name=f"Fase {fase}",
+        line=dict(color=cores[fase])
+    ))
 
 fig.update_layout(
+    title=f"{grafico_selecionado} nas Fases",
+    yaxis_title=f"{grafico_selecionado} ({'V' if grafico_selecionado == 'Tensão' else 'A' if grafico_selecionado == 'Corrente' else 'W'})",
     xaxis_title="Amostras",
+    yaxis=dict(range=[0, 500] if grafico_selecionado == "Tensão" else None),
     height=450,
     template="simple_white"
 )
