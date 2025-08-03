@@ -55,7 +55,7 @@ st.set_page_config(page_title="Supervisório LAT Trifásico", layout="wide")
 # Layout com logo e título lado a lado
 col_logo, col_titulo = st.columns([1, 5])
 with col_logo:
-    st.image("6530_-_Eletrica_-_GRUPOS.jpg", width=130)  # Use a imagem que você já adicionou
+    st.image("FDJ_engenharia.jpg", width=130)  # Use a imagem que você já adicionou
 with col_titulo:
     st.markdown("<h1 style='padding-top: 20px;'>Supervisório de Medição Elétrica</h1>", unsafe_allow_html=True)
 
@@ -260,6 +260,7 @@ fig.update_layout(
     template="simple_white"
 )
 st.plotly_chart(fig, use_container_width=True)
+
 
 
 
