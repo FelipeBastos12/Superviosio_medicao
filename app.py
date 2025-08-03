@@ -275,7 +275,7 @@ for fase in ["A", "B", "C"]:
         fig.update_layout(
             title="Tensão nas Fases",
             yaxis_title="Tensão (V)",
-            yaxis=dict(range=[100, 300])  # eixo Y fixo de 0 a 500 V
+            yaxis=dict(range=[200, 250])  # eixo Y fixo de 0 a 500 V
         )
     elif grafico_selecionado == "Corrente":
         fig.add_trace(go.Scatter(
@@ -309,4 +309,5 @@ fig.update_layout(
     template="simple_white"
 )
 st.plotly_chart(fig, use_container_width=True)
+
 
