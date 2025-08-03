@@ -17,19 +17,22 @@ colunas = {
         "tensao": "Tensao_Fase_ A",
         "corrente": "Corrente_Fase_A",
         "potencia": "Potencia_Ativa_Fase_A",
-        "frequencia": "Frequencia_Fase_A"
+        "frequencia": "Frequencia_Fase_A",
+        "horario": "Horario" # Adicionando a coluna de horário
     },
     "B": {
         "tensao": "Tensao_Fase_ B",
         "corrente": "Corrente_Fase_B",
         "potencia": "Potencia_Ativa_Fase_B",
-        "frequencia": "Frequencia_Fase_B"
+        "frequencia": "Frequencia_Fase_B",
+        "horario": "Horario"
     },
     "C": {
         "tensao": "Tensao_Fase_C",
         "corrente": "Corrente_Fase_C",
         "potencia": "Potencia_Ativa_Fase_C",
-        "frequencia": "Frequencia_Fase_C"
+        "frequencia": "Frequencia_Fase_C",
+        "horario": "Horario"
     }
 }
 
@@ -42,9 +45,11 @@ def load_and_clean_csv(path):
     for col in df.columns:
         df[col] = df[col].astype(str).str.replace(",", ".", regex=False)
         try:
-            df[col] = df[col].astype(float)
+            df[col] = pd.to_numeric(df[col])
         except ValueError:
             pass
+    # Certifique-se de que a coluna Horario é do tipo string para exibição
+    df['Horario'] = df['Horario'].astype(str)
     return df
 
 dfs = {fase: load_and_clean_csv(path) for fase, path in PATHS.items()}
@@ -52,14 +57,13 @@ dfs = {fase: load_and_clean_csv(path) for fase, path in PATHS.items()}
 # --- CONFIGURAÇÃO DE PÁGINA ---
 st.set_page_config(page_title="Supervisório LAT Trifásico", layout="wide")
 
-
 # --- INICIALIZAÇÃO DE SESSION STATE ---
 for fase in ["A", "B", "C"]:
     if f"index_{fase}" not in st.session_state:
         st.session_state[f"index_{fase}"] = 0
     if f"valores_{fase}" not in st.session_state:
         st.session_state[f"valores_{fase}"] = {
-            "tensao": [], "corrente": [], "potencia": []
+            "horario": [], "tensao": [], "corrente": [], "potencia": []
         }
     if f"corrente_anterior_{fase}" not in st.session_state:
         st.session_state[f"corrente_anterior_{fase}"] = 0.0
@@ -70,11 +74,14 @@ with col_logo:
     st.image("FDJ_engenharia.jpg", width=500)
 with col_titulo:
     st.markdown("<h1 style='padding-top: 90px;'>Supervisório de Medição Elétrica</h1>", unsafe_allow_html=True)
+
 # --- SELETOR DE DIA ---
 dia_escolhido = st.radio("Selecionar dia para visualização:", ("Dia Atual", "Dia Anterior"))
+
 # --- AUTOREFRESH (só para Dia Atual) ---
 if dia_escolhido == "Dia Atual":
     st_autorefresh(interval=REFRESH_INTERVAL_MS, limit=None, key="auto_refresh")
+
 # --- FUNÇÃO PARA PEGAR OS DADOS SEGUNDO O DIA SELECIONADO ---
 def get_dados(fase, dia):
     df = dfs[fase]
@@ -87,11 +94,11 @@ def get_dados(fase, dia):
         row = df.iloc[idx]
         st.session_state[f"index_{fase}"] += 1
 
-        # Extrai dados linha a linha
+        # Extrai dados linha a linha, incluindo o horário
+        horario = row.get(colunas[fase]["horario"], None)
         tensao = row.get(colunas[fase]["tensao"], None)
         corrente = row.get(colunas[fase]["corrente"], None)
         potencia = row.get(colunas[fase]["potencia"], None)
-        frequencia = row.get(colunas[fase]["frequencia"], None)
 
         # Corrente zero → mantém anterior
         if corrente == 0:
@@ -100,6 +107,9 @@ def get_dados(fase, dia):
             st.session_state[f"corrente_anterior_{fase}"] = corrente
 
         # Atualiza buffers para gráfico
+        if horario is not None:
+            st.session_state[f"valores_{fase}"]["horario"].append(horario)
+            st.session_state[f"valores_{fase}"]["horario"] = st.session_state[f"valores_{fase}"]["horario"][-50:]
         if tensao is not None:
             st.session_state[f"valores_{fase}"]["tensao"].append(float(tensao))
             st.session_state[f"valores_{fase}"]["tensao"] = st.session_state[f"valores_{fase}"]["tensao"][-50:]
@@ -111,21 +121,25 @@ def get_dados(fase, dia):
             st.session_state[f"valores_{fase}"]["potencia"] = st.session_state[f"valores_{fase}"]["potencia"][-50:]
 
         return {
+            "horario": st.session_state[f"valores_{fase}"]["horario"],
             "tensao": st.session_state[f"valores_{fase}"]["tensao"],
             "corrente": st.session_state[f"valores_{fase}"]["corrente"],
             "potencia": st.session_state[f"valores_{fase}"]["potencia"]
         }
-    else:  # Dia Anterior - retorna todos os dados da planilha (já filtrados no load)
+    else:  # Dia Anterior - retorna todos os dados da planilha
+        horario = df[colunas[fase]["horario"]].tolist()
         tensao = df[colunas[fase]["tensao"]].astype(float).tolist()
         corrente = df[colunas[fase]["corrente"]].astype(float).tolist()
         potencia = df[colunas[fase]["potencia"]].astype(float).tolist()
 
         # Atualiza session_state para evitar erros futuros
+        st.session_state[f"valores_{fase}"]["horario"] = horario
         st.session_state[f"valores_{fase}"]["tensao"] = tensao
         st.session_state[f"valores_{fase}"]["corrente"] = corrente
         st.session_state[f"valores_{fase}"]["potencia"] = potencia
 
         return {
+            "horario": horario,
             "tensao": tensao,
             "corrente": corrente,
             "potencia": potencia
@@ -134,6 +148,8 @@ def get_dados(fase, dia):
 # --- PEGANDO OS DADOS SEGUNDO DIA SELECIONADO ---
 for fase in ["A", "B", "C"]:
     _ = get_dados(fase, dia_escolhido)
+
+# ... (o restante do seu código, incluindo a exibição dos visores, permanece o mesmo) ...
 
 # --- PEGANDO ÚLTIMOS VALORES PARA VISOR AGRUPADO ---
 valores_tensao = {}
@@ -154,7 +170,8 @@ for fase in ["A", "B", "C"]:
         corrente = row.get(colunas[fase]["corrente"], 0)
         potencia = row.get(colunas[fase]["potencia"], 0)
         frequencia = row.get(colunas[fase]["frequencia"], 0)
-
+        
+        # Corrente zero → mantém anterior
         if corrente == 0:
             corrente = st.session_state.get(f"corrente_anterior_{fase}", corrente)
         else:
@@ -170,6 +187,7 @@ for fase in ["A", "B", "C"]:
         valores_corrente[fase] = float(df[colunas[fase]["corrente"]].iloc[-1])
         valores_potencia[fase] = float(df[colunas[fase]["potencia"]].iloc[-1])
         valores_frequencia[fase] = float(df[colunas[fase]["frequencia"]].iloc[-1])
+        
 
 # --- VISOR PERSONALIZADO ---
 def visor_fases(label, valores_por_fase, unidade, cor_fundo="#2c3e50"):
@@ -252,8 +270,12 @@ for fase in ["A", "B", "C"]:
     # Define o modo do gráfico conforme o dia selecionado
     modo = "lines+markers" if dia_escolhido == "Dia Atual" else "lines"
     
+    # Agora passamos os horários como o eixo X
+    x_data = dados["horario"]
+    
     if grafico_selecionado == "Tensão":
         fig.add_trace(go.Scatter(
+            x=x_data,
             y=dados["tensao"],
             mode=modo,
             name=f"Fase {fase}",
@@ -262,10 +284,11 @@ for fase in ["A", "B", "C"]:
         fig.update_layout(
             title="Tensão nas Fases",
             yaxis_title="Tensão (V)",
-            yaxis=dict(range=[100, 250])  # eixo Y fixo de 0 a 500 V
+            yaxis=dict(range=[100, 250])
         )
     elif grafico_selecionado == "Corrente":
         fig.add_trace(go.Scatter(
+            x=x_data,
             y=dados["corrente"],
             mode=modo,
             name=f"Fase {fase}",
@@ -274,6 +297,7 @@ for fase in ["A", "B", "C"]:
         fig.update_layout(title="Corrente nas Fases", yaxis_title="Corrente (A)")
     elif grafico_selecionado == "Potência Ativa":
         fig.add_trace(go.Scatter(
+            x=x_data,
             y=dados["potencia"],
             mode=modo,
             name=f"Fase {fase}",
@@ -282,10 +306,8 @@ for fase in ["A", "B", "C"]:
         fig.update_layout(title="Potência Ativa nas Fases", yaxis_title="Potência Ativa (W)")
 
 fig.update_layout(
-    xaxis_title="Amostras",
+    xaxis_title="Horário",  # Alterado para "Horário"
     height=450,
     template="simple_white"
 )
 st.plotly_chart(fig, use_container_width=True)
-
-
