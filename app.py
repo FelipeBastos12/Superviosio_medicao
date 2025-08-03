@@ -103,101 +103,71 @@ for fase in ["A", "B", "C"]:
 # --- VISUALIZAÇÃO AGRUPADA DOS VISORS ---
 def cor_tensao(valor):
     return "#2ecc71" if valor >= 210 else "#c0392b"
+    
+def criar_visor_agrupado_interno(titulo, unidade, cor_fundo):
+    conteudo_corpo = ""
+    for fase in ["A", "B", "C"]:
+        valor = None
+        cor_texto_fase = "#ffffff"
+        
+        if titulo == "Tensão":
+            valor_num = st.session_state[f"valores_{fase}"]["tensao"][-1] if st.session_state[f"valores_{fase}"]["tensao"] else None
+            if valor_num is not None:
+                cor_texto_fase = cor_tensao(valor_num)
+                valor = f"{valor_num:.1f}"
+        elif titulo == "Corrente":
+            valor_num = st.session_state[f"valores_{fase}"]["corrente"][-1] if st.session_state[f"valores_{fase}"]["corrente"] else None
+            if valor_num is not None:
+                valor = f"{valor_num:.2f}"
+        elif titulo == "Potência Ativa":
+            valor_num = st.session_state[f"valores_{fase}"]["potencia"][-1] if st.session_state[f"valores_{fase}"]["potencia"] else None
+            if valor_num is not None:
+                valor = f"{valor_num:.2f}"
+        elif titulo == "Frequência":
+            valor_num = st.session_state.get('frequencia_ultima', None)
+            if valor_num is not None:
+                valor = f"{valor_num:.2f}"
+        
+        if valor is not None:
+            conteudo_corpo += f"""
+                <div style='
+                    color: {cor_texto_fase};
+                    padding: 5px;
+                    text-align: left;
+                    font-size: 20px;
+                    font-weight: bold;
+                '>
+                    Fase {fase}: {valor} {unidade}
+                </div>
+            """
+    
+    html_final = f"""
+    <div style='
+        background-color: {cor_fundo};
+        color: #ffffff;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+    '>
+        <h4 style='text-align: center;'>{titulo}</h4>
+        {conteudo_corpo}
+    </div>
+    """
+    return html_final
 
 col_tensao, col_corrente, col_potencia, col_frequencia = st.columns(4)
 
 with col_tensao:
-    st.subheader("Tensão")
-    
-    html_content = ""
-    for fase in ["A", "B", "C"]:
-        valor = st.session_state[f"valores_{fase}"]["tensao"][-1] if st.session_state[f"valores_{fase}"]["tensao"] else None
-        if valor is not None:
-            cor_texto = cor_tensao(valor)
-            html_content += f"""
-                <div style='
-                    background-color: #2c3e50;
-                    color: {cor_texto};
-                    padding: 20px;
-                    border-radius: 10px;
-                    text-align: center;
-                    font-size: 24px;
-                    font-weight: bold;
-                    margin-bottom: 10px;
-                '>
-                    Fase {fase}: {valor:.1f} V
-                </div>
-            """
-    st.markdown(html_content, unsafe_allow_html=True)
+    st.markdown(criar_visor_agrupado_interno("Tensão", "V", "#2c3e50"), unsafe_allow_html=True)
 
 with col_corrente:
-    st.subheader("Corrente")
+    st.markdown(criar_visor_agrupado_interno("Corrente", "A", "#2c3e50"), unsafe_allow_html=True)
     
-    html_content = ""
-    for fase in ["A", "B", "C"]:
-        valor = st.session_state[f"valores_{fase}"]["corrente"][-1] if st.session_state[f"valores_{fase}"]["corrente"] else None
-        if valor is not None:
-            html_content += f"""
-                <div style='
-                    background-color: #2c3e50;
-                    color: #ffffff;
-                    padding: 20px;
-                    border-radius: 10px;
-                    text-align: center;
-                    font-size: 24px;
-                    font-weight: bold;
-                    margin-bottom: 10px;
-                '>
-                    Fase {fase}: {valor:.2f} A
-                </div>
-            """
-    st.markdown(html_content, unsafe_allow_html=True)
-
 with col_potencia:
-    st.subheader("Potência Ativa")
+    st.markdown(criar_visor_agrupado_interno("Potência Ativa", "W", "#2c3e50"), unsafe_allow_html=True)
     
-    html_content = ""
-    for fase in ["A", "B", "C"]:
-        valor = st.session_state[f"valores_{fase}"]["potencia"][-1] if st.session_state[f"valores_{fase}"]["potencia"] else None
-        if valor is not None:
-            html_content += f"""
-                <div style='
-                    background-color: #2c3e50;
-                    color: #ffffff;
-                    padding: 20px;
-                    border-radius: 10px;
-                    text-align: center;
-                    font-size: 24px;
-                    font-weight: bold;
-                    margin-bottom: 10px;
-                '>
-                    Fase {fase}: {valor:.2f} W
-                </div>
-            """
-    st.markdown(html_content, unsafe_allow_html=True)
-
 with col_frequencia:
-    st.subheader("Frequência")
-    
-    html_content = ""
-    valor_frequencia = st.session_state.get('frequencia_ultima', None)
-    if valor_frequencia is not None:
-        for fase in ["A", "B", "C"]:
-            html_content += f"""
-                <div style='
-                    background-color: #2c3e50;
-                    color: #ffffff;
-                    padding: 20px;
-                    border-radius: 10px;
-                    text-align: center;
-                    font-size: 24px;
-                    font-weight: bold;
-                    margin-bottom: 10px;
-                '>
-                    Fase {fase}: {valor_frequencia:.2f} Hz
-                </div>
-            """
-    st.markdown(html_content, unsafe_allow_html=True)
+    st.markdown(criar_visor_agrupado_interno("Frequência", "Hz", "#2c3e50"), unsafe_allow_html=True)
 
 # --- GRÁFICOS DINÂMICOS ---
 grafico_selecionado = st.radio("📈 Selecione o gráfico a ser exibido:", ("Tensão", "Corrente", "Potência Ativa"))
