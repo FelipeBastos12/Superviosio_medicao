@@ -105,7 +105,11 @@ def cor_tensao(valor):
     return "#2ecc71" if valor >= 210 else "#c0392b"
     
 def criar_visor_agrupado_interno(titulo, unidade, cor_fundo):
-    conteudo_corpo = ""
+    html_partes = []
+    
+    html_partes.append(f"<div style='background-color: {cor_fundo}; color: #ffffff; padding: 20px; border-radius: 10px; margin-bottom: 10px;'>")
+    html_partes.append(f"<h4 style='text-align: center;'>{titulo}</h4>")
+    
     for fase in ["A", "B", "C"]:
         valor = None
         cor_texto_fase = "#ffffff"
@@ -129,7 +133,7 @@ def criar_visor_agrupado_interno(titulo, unidade, cor_fundo):
                 valor = f"{valor_num:.2f}"
         
         if valor is not None:
-            conteudo_corpo += f"""
+            html_partes.append(f"""
                 <div style='
                     color: {cor_texto_fase};
                     padding: 5px;
@@ -139,21 +143,10 @@ def criar_visor_agrupado_interno(titulo, unidade, cor_fundo):
                 '>
                     Fase {fase}: {valor} {unidade}
                 </div>
-            """
+            """)
     
-    html_final = f"""
-    <div style='
-        background-color: {cor_fundo};
-        color: #ffffff;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 10px;
-    '>
-        <h4 style='text-align: center;'>{titulo}</h4>
-        {conteudo_corpo}
-    </div>
-    """
-    return html_final
+    html_partes.append("</div>")
+    return "".join(html_partes)
 
 col_tensao, col_corrente, col_potencia, col_frequencia = st.columns(4)
 
