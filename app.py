@@ -65,7 +65,7 @@ for fase in ["A", "B", "C"]:
     if f"corrente_anterior_{fase}" not in st.session_state:
         st.session_state[f"corrente_anterior_{fase}"] = 0.0
 
-# --- VISOR PERSONALIZADO ---
+# --- VISOR PERSONALIZADO (Não usado na nova visualização, mas mantido por segurança) ---
 def visor(valor, label, cor_fundo, cor_texto):
     return f"""
     <div style='
@@ -93,19 +93,16 @@ for fase in ["A", "B", "C"]:
     row = df.iloc[idx]
     st.session_state[f"index_{fase}"] += 1
 
-    # Extrai dados
     tensao = row.get(colunas[fase]["tensao"], None)
     corrente = row.get(colunas[fase]["corrente"], None)
     potencia = row.get(colunas[fase]["potencia"], None)
     frequencia = row.get(colunas[fase]["frequencia"], None)
 
-    # Corrente zero → mantém anterior
     if corrente == 0:
         corrente = st.session_state.get(f"corrente_anterior_{fase}", corrente)
     else:
         st.session_state[f"corrente_anterior_{fase}"] = corrente
 
-    # Atualiza buffers para gráfico
     if tensao is not None:
         st.session_state[f"valores_{fase}"]["tensao"].append(float(tensao))
         st.session_state[f"valores_{fase}"]["tensao"] = st.session_state[f"valores_{fase}"]["tensao"][-50:]
@@ -115,11 +112,14 @@ for fase in ["A", "B", "C"]:
     if potencia is not None:
         st.session_state[f"valores_{fase}"]["potencia"].append(float(potencia))
         st.session_state[f"valores_{fase}"]["potencia"] = st.session_state[f"valores_{fase}"]["potencia"][-50:]
+    # Salva a frequência no session state para usar nas outras fases
+    if frequencia is not None:
+        st.session_state['frequencia_ultima'] = float(frequencia)
 
 # --- VISUALIZAÇÃO AGRUPADA DOS VISORS ---
 def cor_tensao(valor):
     return "#2ecc71" if valor >= 210 else "#c0392b"
-
+    
 def criar_visor_agrupado_interno(titulo, unidade, cor_fundo):
     conteudo_corpo = ""
     for fase in ["A", "B", "C"]:
@@ -140,16 +140,9 @@ def criar_visor_agrupado_interno(titulo, unidade, cor_fundo):
             if valor_num is not None:
                 valor = f"{valor_num:.2f}"
         elif titulo == "Frequência":
-            try:
-                if fase == "A":
-                    valor_num = dfs["A"].iloc[st.session_state["index_A"]-1].get(colunas["A"]["frequencia"], None)
-                    st.session_state['frequencia_ultima'] = valor_num
-                else:
-                    valor_num = st.session_state.get('frequencia_ultima', None)
-            except:
-                valor_num = None
+            valor_num = st.session_state.get('frequencia_ultima', None)
             if valor_num is not None:
-                valor = f"{float(valor_num):.2f}"
+                valor = f"{valor_num:.2f}"
         
         if valor is not None:
             conteudo_corpo += f"""
