@@ -232,3 +232,15 @@ for fase in ["A", "B", "C"]:
     elif grafico_selecionado == "Potência Ativa":
         fig.add_trace(go.Scatter(
             y=dados["potencia"],
+            mode='lines+markers',
+            name=f"Fase {fase}",
+            line=dict(color=cores[fase])
+        ))
+        fig.update_layout(title="Potência Ativa nas Fases", yaxis_title="Potência Ativa (W)")
+
+fig.update_layout(
+    xaxis_title="Amostras",
+    height=450,
+    template="simple_white"
+)
+st.plotly_chart(fig, use_container_width=True)
