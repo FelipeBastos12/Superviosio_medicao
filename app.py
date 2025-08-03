@@ -50,10 +50,10 @@ dfs = {fase: load_and_clean_csv(path) for fase, path in PATHS.items()}
 # --- CONFIGURAÇÃO DE PÁGINA ---
 st.set_page_config(page_title="Supervisório LAT Trifásico", layout="wide")
 
-# --- SELETOR DE DIA (apenas para gráfico) ---
+# --- SELETOR DE DIA PARA O GRÁFICO ---
 dia_escolhido = st.radio("Selecionar dia para visualização do gráfico:", ("Dia Atual", "Dia Anterior"))
 
-# --- AUTOREFRESH (só para Dia Atual no gráfico) ---
+# --- AUTOREFRESH SÓ PARA DIA ATUAL (mantém os dados do dia atual fluindo) ---
 if dia_escolhido == "Dia Atual":
     st_autorefresh(interval=REFRESH_INTERVAL_MS, limit=None, key="auto_refresh")
 
@@ -75,7 +75,7 @@ with col_logo:
 with col_titulo:
     st.markdown("<h1 style='padding-top: 90px;'>Supervisório de Medição Elétrica</h1>", unsafe_allow_html=True)
 
-# --- FUNÇÃO DE DOWN-SAMPLING ---
+# --- FUNÇÃO DE DOWN-SAMPLING PARA GRÁFICO ---
 def downsample(lista, max_pontos=500):
     n = len(lista)
     if n <= max_pontos:
@@ -105,7 +105,7 @@ for fase in ["A", "B", "C"]:
     else:
         st.session_state[f"corrente_anterior_{fase}"] = corrente
 
-    # Atualiza buffer para gráfico do dia atual
+    # Atualiza buffers para o gráfico em tempo real (dia atual)
     if tensao is not None:
         st.session_state[f"valores_{fase}"]["tensao"].append(float(tensao))
         st.session_state[f"valores_{fase}"]["tensao"] = st.session_state[f"valores_{fase}"]["tensao"][-300:]
@@ -133,12 +133,11 @@ def get_dados_para_grafico(fase, dia):
             "potencia": potencia
         }
 
-# --- PEGANDO OS DADOS PARA O GRÁFICO ---
 dados_grafico = {}
 for fase in ["A", "B", "C"]:
     dados_grafico[fase] = get_dados_para_grafico(fase, dia_escolhido)
 
-# --- 3) PEGANDO OS ÚLTIMOS VALORES PARA OS VISORES (SEMPRRE DIA ATUAL) ---
+# --- 3) PEGANDO OS ÚLTIMOS VALORES PARA OS VISORES (SEMPRE DIA ATUAL) ---
 valores_tensao = {}
 valores_corrente = {}
 valores_potencia = {}
@@ -156,6 +155,7 @@ for fase in ["A", "B", "C"]:
     potencia = row.get(colunas[fase]["potencia"], 0)
     frequencia = row.get(colunas[fase]["frequencia"], 0)
 
+    # Corrente zero mantém anterior
     if corrente == 0:
         corrente = st.session_state.get(f"corrente_anterior_{fase}", corrente)
     else:
@@ -166,7 +166,7 @@ for fase in ["A", "B", "C"]:
     valores_potencia[fase] = float(potencia)
     valores_frequencia[fase] = float(frequencia)
 
-# --- FUNÇÃO PARA EXIBIR OS VISORS AGRUPADOS ---
+# --- FUNÇÃO PARA EXIBIR OS VISORES AGRUPADOS ---
 def visor_fases(label, valores_por_fase, unidade, cor_fundo="#2c3e50"):
     cores_texto = {
         "A": "#2ecc71" if (label == "Tensão" and valores_por_fase["A"] >= 210) or label != "Tensão" else "#c0392b",
@@ -222,7 +222,7 @@ def visor_fases(label, valores_por_fase, unidade, cor_fundo="#2c3e50"):
     </div>
     """, unsafe_allow_html=True)
 
-# --- EXIBIÇÃO DOS VISORS ---
+# --- EXIBIÇÃO DOS VISORES ---
 row1_col1, row1_col2 = st.columns(2)
 row2_col1, row2_col2 = st.columns(2)
 
@@ -235,32 +235,26 @@ with row2_col1:
 with row2_col2:
     visor_fases("Frequência", valores_frequencia, "Hz")
 
-# --- GRÁFICO DINÂMICO ---
-grafico_selecionado = st.radio("", ("Tensão", "Corrente", "Potência Ativa"))
+# --- GRÁFICOS DINÂMICOS ---
+grafico_selecionado = st.radio("Selecione grandeza para o gráfico:", ("Tensão", "Corrente", "Potência Ativa"))
 
 fig = go.Figure()
 cores = {"A": "#2980b9", "B": "#e67e22", "C": "#27ae60"}
-
-modo = "lines+markers" if dia_escolhido == "Dia Atual" else "lines"
 
 for fase in ["A", "B", "C"]:
     dados = dados_grafico[fase]
     if grafico_selecionado == "Tensão":
         fig.add_trace(go.Scatter(
             y=dados["tensao"],
-            mode=modo,
+            mode='lines+markers' if dia_escolhido == "Dia Atual" else 'lines',
             name=f"Fase {fase}",
             line=dict(color=cores[fase])
         ))
-        fig.update_layout(
-            title="Tensão nas Fases",
-            yaxis_title="Tensão (V)",
-            yaxis=dict(range=[0, 500])
-        )
+        fig.update_layout(title="Tensão nas Fases", yaxis_title="Tensão (V)", yaxis=dict(range=[0,500]))
     elif grafico_selecionado == "Corrente":
         fig.add_trace(go.Scatter(
             y=dados["corrente"],
-            mode=modo,
+            mode='lines+markers' if dia_escolhido == "Dia Atual" else 'lines',
             name=f"Fase {fase}",
             line=dict(color=cores[fase])
         ))
@@ -268,7 +262,7 @@ for fase in ["A", "B", "C"]:
     elif grafico_selecionado == "Potência Ativa":
         fig.add_trace(go.Scatter(
             y=dados["potencia"],
-            mode=modo,
+            mode='lines+markers' if dia_escolhido == "Dia Atual" else 'lines',
             name=f"Fase {fase}",
             line=dict(color=cores[fase])
         ))
