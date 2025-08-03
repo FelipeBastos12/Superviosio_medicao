@@ -39,7 +39,7 @@ colunas = {
 def load_and_clean_csv(path):
     df = pd.read_csv(path)
     # Filtra só dados do dia 23/05/2025
-    df = df[df["Data"] == "25/05/2025"].copy()
+    df = df[df["Data"] == "23/05/2025"].copy()
     for col in df.columns:
         df[col] = df[col].astype(str).str.replace(",", ".", regex=False)
         try:
@@ -329,5 +329,6 @@ fig.update_layout(
     template="simple_white"
 )
 st.plotly_chart(fig, use_container_width=True)
+
 
 
