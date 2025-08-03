@@ -213,7 +213,7 @@ with row2_col2:
     visor_fases("Frequência", valores_frequencia, "Hz")
 
 # --- GRÁFICOS DINÂMICOS ---
-grafico_selecionado = st.radio( ("Tensão", "Corrente", "Potência Ativa"))
+grafico_selecionado = st.radio( "",("Tensão", "Corrente", "Potência Ativa"))
 
 fig = go.Figure()
 cores = {"A": "#2980b9", "B": "#e67e22", "C": "#27ae60"}
@@ -251,5 +251,6 @@ fig.update_layout(
     template="simple_white"
 )
 st.plotly_chart(fig, use_container_width=True)
+
 
 
