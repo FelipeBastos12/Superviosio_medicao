@@ -49,7 +49,7 @@ dfs = {fase: load_and_clean_csv(path) for fase, path in PATHS.items()}
 
 # --- CONFIGURAÇÃO DE PÁGINA ---
 st.set_page_config(page_title="Supervisório LAT Trifásico", layout="wide")
-st.title("🔌 Supervisório LAT – Fases A, B e C")
+st.title("Supervisório de medição elétrica")
 
 # --- AUTOREFRESH ---
 st_autorefresh(interval=REFRESH_INTERVAL_MS, limit=None, key="auto_refresh")
@@ -213,7 +213,7 @@ with row2_col2:
     visor_fases("Frequência", valores_frequencia, "Hz")
 
 # --- GRÁFICOS DINÂMICOS ---
-grafico_selecionado = st.radio("📈 Selecione o gráfico a ser exibido:", ("Tensão", "Corrente", "Potência Ativa"))
+#grafico_selecionado = st.radio("📈 Selecione o gráfico a ser exibido:", ("Tensão", "Corrente", "Potência Ativa"))
 
 fig = go.Figure()
 cores = {"A": "#2980b9", "B": "#e67e22", "C": "#27ae60"}
@@ -251,3 +251,4 @@ fig.update_layout(
     template="simple_white"
 )
 st.plotly_chart(fig, use_container_width=True)
+
