@@ -18,21 +18,21 @@ colunas = {
         "corrente": "Corrente_Fase_A",
         "potencia": "Potencia_Ativa_Fase_A",
         "frequencia": "Frequencia_Fase_A",
-        "horario": "Horario" # Adicionando a coluna de horário
+        "horario": "Horário" # Adicionando a coluna de horário
     },
     "B": {
         "tensao": "Tensao_Fase_ B",
         "corrente": "Corrente_Fase_B",
         "potencia": "Potencia_Ativa_Fase_B",
         "frequencia": "Frequencia_Fase_B",
-        "horario": "Horario"
+        "horario": "Horário"
     },
     "C": {
         "tensao": "Tensao_Fase_C",
         "corrente": "Corrente_Fase_C",
         "potencia": "Potencia_Ativa_Fase_C",
         "frequencia": "Frequencia_Fase_C",
-        "horario": "Horario"
+        "horario": "Horário"
     }
 }
 
@@ -311,3 +311,4 @@ fig.update_layout(
     template="simple_white"
 )
 st.plotly_chart(fig, use_container_width=True)
+
