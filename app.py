@@ -45,6 +45,8 @@ def load_and_clean_csv(path):
             df[col] = df[col].astype(float)
         except ValueError:
             pass
+    # Combina 'Data' e 'Horário' para criar um timestamp
+    df['Timestamp'] = pd.to_datetime(df['Data'] + ' ' + df['Horário'], format='%d/%m/%Y %H:%M:%S')
     return df
 
 dfs = {fase: load_and_clean_csv(path) for fase, path in PATHS.items()}
@@ -58,7 +60,7 @@ for fase in ["A", "B", "C"]:
         st.session_state[f"index_{fase}"] = 0
     if f"valores_{fase}" not in st.session_state:
         st.session_state[f"valores_{fase}"] = {
-            "tensao": [], "corrente": [], "potencia": []
+            "tensao": [], "corrente": [], "potencia": [], "timestamp": []
         }
     if f"corrente_anterior_{fase}" not in st.session_state:
         st.session_state[f"corrente_anterior_{fase}"] = 0.0
@@ -93,7 +95,7 @@ def get_dados(fase, dia):
         tensao = row.get(colunas[fase]["tensao"], None)
         corrente = row.get(colunas[fase]["corrente"], None)
         potencia = row.get(colunas[fase]["potencia"], None)
-        frequencia = row.get(colunas[fase]["frequencia"], None)
+        timestamp = row.get("Timestamp", None)
 
         # Corrente zero → mantém anterior
         if corrente == 0:
@@ -111,26 +113,34 @@ def get_dados(fase, dia):
         if potencia is not None:
             st.session_state[f"valores_{fase}"]["potencia"].append(float(potencia))
             st.session_state[f"valores_{fase}"]["potencia"] = st.session_state[f"valores_{fase}"]["potencia"][-50:]
+        if timestamp is not None:
+            st.session_state[f"valores_{fase}"]["timestamp"].append(timestamp)
+            st.session_state[f"valores_{fase}"]["timestamp"] = st.session_state[f"valores_{fase}"]["timestamp"][-50:]
+
 
         return {
             "tensao": st.session_state[f"valores_{fase}"]["tensao"],
             "corrente": st.session_state[f"valores_{fase}"]["corrente"],
-            "potencia": st.session_state[f"valores_{fase}"]["potencia"]
+            "potencia": st.session_state[f"valores_{fase}"]["potencia"],
+            "timestamp": st.session_state[f"valores_{fase}"]["timestamp"]
         }
     else:  # Dia Anterior - retorna todos os dados da planilha (já filtrados no load)
         tensao = df[colunas[fase]["tensao"]].astype(float).tolist()
         corrente = df[colunas[fase]["corrente"]].astype(float).tolist()
         potencia = df[colunas[fase]["potencia"]].astype(float).tolist()
+        timestamp = df["Timestamp"].tolist()
 
         # Atualiza session_state para evitar erros futuros
         st.session_state[f"valores_{fase}"]["tensao"] = tensao
         st.session_state[f"valores_{fase}"]["corrente"] = corrente
         st.session_state[f"valores_{fase}"]["potencia"] = potencia
+        st.session_state[f"valores_{fase}"]["timestamp"] = timestamp
 
         return {
             "tensao": tensao,
             "corrente": corrente,
-            "potencia": potencia
+            "potencia": potencia,
+            "timestamp": timestamp
         }
 
 # --- PEGANDO OS DADOS SEGUNDO DIA SELECIONADO ---
@@ -256,6 +266,7 @@ for fase in ["A", "B", "C"]:
     
     if grafico_selecionado == "Tensão":
         fig.add_trace(go.Scatter(
+            x=dados["timestamp"],  # Eixo X agora é o Timestamp
             y=dados["tensao"],
             mode=modo,
             name=f"Fase {fase}",
@@ -268,6 +279,7 @@ for fase in ["A", "B", "C"]:
         )
     elif grafico_selecionado == "Corrente":
         fig.add_trace(go.Scatter(
+            x=dados["timestamp"],  # Eixo X agora é o Timestamp
             y=dados["corrente"],
             mode=modo,
             name=f"Fase {fase}",
@@ -276,6 +288,7 @@ for fase in ["A", "B", "C"]:
         fig.update_layout(title="Corrente nas Fases", yaxis_title="Corrente (A)")
     elif grafico_selecionado == "Potência Ativa":
         fig.add_trace(go.Scatter(
+            x=dados["timestamp"],  # Eixo X agora é o Timestamp
             y=dados["potencia"],
             mode=modo,
             name=f"Fase {fase}",
@@ -284,9 +297,15 @@ for fase in ["A", "B", "C"]:
         fig.update_layout(title="Potência Ativa nas Fases", yaxis_title="Potência Ativa (W)")
 
 fig.update_layout(
-    xaxis_title="Amostras",
+    xaxis_title="Horário",
+    xaxis_tickformat='%H:%M',  # Formata o eixo X para mostrar horas e minutos
+    xaxis=dict(
+        tickmode='auto', 
+        nticks=24,  # Tenta exibir 24 ticks (uma para cada hora)
+        showgrid=True,
+        gridcolor='rgba(128,128,128,0.2)'
+    ),
     height=450,
     template="simple_white"
 )
 st.plotly_chart(fig, use_container_width=True)
-
