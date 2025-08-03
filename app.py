@@ -100,40 +100,59 @@ for fase in ["A", "B", "C"]:
     if frequencia is not None:
         st.session_state["frequencia_ultima"] = float(frequencia)
 
-# --- VISUALIZAÇÃO AGRUPADA DOS VISORS ---
+# --- FUNÇÃO PARA RENDERIZAR O PAINEL ---
 def cor_tensao(valor):
     return "#2ecc71" if valor >= 210 else "#c0392b"
     
-def criar_visor_agrupado_interno(titulo, unidade, cor_fundo):
-    html_partes = []
+def renderizar_painel_principal(titulo, unidade, cor_fundo):
+    conteudo_corpo = []
     
-    html_partes.append(f"<div style='background-color: {cor_fundo}; color: #ffffff; padding: 20px; border-radius: 10px; margin-bottom: 10px;'>")
-    html_partes.append(f"<h4 style='text-align: center;'>{titulo}</h4>")
+    # Adiciona a fase A, que tem uma estrutura ligeiramente diferente
+    valor_a = None
+    if titulo == "Tensão":
+        valor_a = st.session_state["valores_A"]["tensao"][-1] if st.session_state["valores_A"]["tensao"] else None
+    elif titulo == "Corrente":
+        valor_a = st.session_state["valores_A"]["corrente"][-1] if st.session_state["valores_A"]["corrente"] else None
+    elif titulo == "Potência Ativa":
+        valor_a = st.session_state["valores_A"]["potencia"][-1] if st.session_state["valores_A"]["potencia"] else None
+    elif titulo == "Frequência":
+        valor_a = st.session_state.get('frequencia_ultima', None)
     
-    for fase in ["A", "B", "C"]:
-        valor = None
-        cor_texto_fase = "#ffffff"
+    if valor_a is not None:
+        cor_texto_a = cor_tensao(valor_a) if titulo == "Tensão" else "#ffffff"
         
+        conteudo_corpo.append(f"""
+            <div style='
+                background-color: {cor_fundo};
+                color: {cor_texto_a};
+                padding: 10px;
+                border-radius: 10px;
+                text-align: left;
+                font-size: 24px;
+                font-weight: bold;
+                margin-bottom: 10px;
+            '>
+                Fase A: {valor_a:.2f} {unidade}
+            </div>
+        """)
+
+    # Adiciona a estrutura das fases B e C em um único bloco HTML
+    html_interno_b_c = []
+    for fase in ["B", "C"]:
+        valor_num = None
         if titulo == "Tensão":
             valor_num = st.session_state[f"valores_{fase}"]["tensao"][-1] if st.session_state[f"valores_{fase}"]["tensao"] else None
-            if valor_num is not None:
-                cor_texto_fase = cor_tensao(valor_num)
-                valor = f"{valor_num:.1f}"
         elif titulo == "Corrente":
             valor_num = st.session_state[f"valores_{fase}"]["corrente"][-1] if st.session_state[f"valores_{fase}"]["corrente"] else None
-            if valor_num is not None:
-                valor = f"{valor_num:.2f}"
         elif titulo == "Potência Ativa":
             valor_num = st.session_state[f"valores_{fase}"]["potencia"][-1] if st.session_state[f"valores_{fase}"]["potencia"] else None
-            if valor_num is not None:
-                valor = f"{valor_num:.2f}"
         elif titulo == "Frequência":
             valor_num = st.session_state.get('frequencia_ultima', None)
-            if valor_num is not None:
-                valor = f"{valor_num:.2f}"
         
-        if valor is not None:
-            html_partes.append(f"""
+        if valor_num is not None:
+            cor_texto_fase = cor_tensao(valor_num) if titulo == "Tensão" else "#ffffff"
+            
+            html_interno_b_c.append(f"""
                 <div style='
                     color: {cor_texto_fase};
                     padding: 5px;
@@ -141,26 +160,40 @@ def criar_visor_agrupado_interno(titulo, unidade, cor_fundo):
                     font-size: 20px;
                     font-weight: bold;
                 '>
-                    Fase {fase}: {valor} {unidade}
+                    Fase {fase}: {valor_num:.2f} {unidade}
                 </div>
             """)
     
-    html_partes.append("</div>")
-    return "".join(html_partes)
+    html_completo_b_c = "".join(html_interno_b_c)
+    
+    # Renderiza o container principal com o título e os blocos de fases A, B e C
+    st.markdown(f"### {titulo}")
+    st.markdown("".join(conteudo_corpo), unsafe_allow_html=True)
+    st.markdown(f"""
+        <div style='
+            background-color: {cor_fundo};
+            color: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        '>
+            {html_completo_b_c}
+        </div>
+    """, unsafe_allow_html=True)
 
 col_tensao, col_corrente, col_potencia, col_frequencia = st.columns(4)
 
 with col_tensao:
-    st.markdown(criar_visor_agrupado_interno("Tensão", "V", "#2c3e50"), unsafe_allow_html=True)
+    renderizar_painel_principal("Tensão", "V", "#2c3e50")
 
 with col_corrente:
-    st.markdown(criar_visor_agrupado_interno("Corrente", "A", "#2c3e50"), unsafe_allow_html=True)
+    renderizar_painel_principal("Corrente", "A", "#2c3e50")
     
 with col_potencia:
-    st.markdown(criar_visor_agrupado_interno("Potência Ativa", "W", "#2c3e50"), unsafe_allow_html=True)
+    renderizar_painel_principal("Potência Ativa", "W", "#2c3e50")
     
 with col_frequencia:
-    st.markdown(criar_visor_agrupado_interno("Frequência", "Hz", "#2c3e50"), unsafe_allow_html=True)
+    renderizar_painel_principal("Frequência", "Hz", "#2c3e50")
 
 # --- GRÁFICOS DINÂMICOS ---
 grafico_selecionado = st.radio("📈 Selecione o gráfico a ser exibido:", ("Tensão", "Corrente", "Potência Ativa"))
