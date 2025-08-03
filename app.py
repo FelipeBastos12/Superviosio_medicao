@@ -105,7 +105,7 @@ def cor_tensao(valor):
     return "#2ecc71" if valor >= 210 else "#c0392b"
     
 def criar_visor_agrupado_interno(titulo, unidade, cor_fundo):
-    conteudo_corpo = ""
+    conteudo_corpo = []
     for fase in ["A", "B", "C"]:
         valor = None
         cor_texto_fase = "#ffffff"
@@ -129,7 +129,7 @@ def criar_visor_agrupado_interno(titulo, unidade, cor_fundo):
                 valor = f"{valor_num:.2f}"
         
         if valor is not None:
-            conteudo_corpo += f"""
+            conteudo_corpo.append(f"""
                 <div style='
                     color: {cor_texto_fase};
                     padding: 5px;
@@ -139,7 +139,9 @@ def criar_visor_agrupado_interno(titulo, unidade, cor_fundo):
                 '>
                     Fase {fase}: {valor} {unidade}
                 </div>
-            """
+            """)
+
+    conteudo_corpo_str = "".join(conteudo_corpo)
     
     html_final = f"""
     <div style='
@@ -150,7 +152,7 @@ def criar_visor_agrupado_interno(titulo, unidade, cor_fundo):
         margin-bottom: 10px;
     '>
         <h4 style='text-align: center;'>{titulo}</h4>
-        {conteudo_corpo}
+        {conteudo_corpo_str}
     </div>
     """
     return html_final
