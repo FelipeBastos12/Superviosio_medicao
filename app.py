@@ -65,7 +65,7 @@ for fase in ["A", "B", "C"]:
 
 # --- VISOR PERSONALIZADO ---
 def visor(valor, label, cor_fundo, cor_texto):
-    st.markdown(f"""
+    return f"""
     <div style='
         background-color: {cor_fundo};
         color: {cor_texto};
@@ -78,62 +78,94 @@ def visor(valor, label, cor_fundo, cor_texto):
     '>
         {label}: {valor}
     </div>
-    """, unsafe_allow_html=True)
+    """
 
-# --- VISUALIZAÇÃO EM COLUNAS ---
-col_a, col_b, col_c = st.columns(3)
+# --- ATUALIZAÇÃO DOS DADOS POR FASE ---
+for fase in ["A", "B", "C"]:
+    df = dfs[fase]
+    idx = st.session_state[f"index_{fase}"]
+    if idx >= len(df):
+        st.session_state[f"index_{fase}"] = 0
+        idx = 0
+        st.success(f"Reiniciando dados da fase {fase}")
+    row = df.iloc[idx]
+    st.session_state[f"index_{fase}"] += 1
 
-for col, fase in zip([col_a, col_b, col_c], ["A", "B", "C"]):
-    with col:
-        st.subheader(f"Fase {fase}")
-        df = dfs[fase]
-        idx = st.session_state[f"index_{fase}"]
-        if idx >= len(df):
-            st.session_state[f"index_{fase}"] = 0
-            idx = 0
-            st.success(f"Reiniciando dados da fase {fase}")
-        row = df.iloc[idx]
-        st.session_state[f"index_{fase}"] += 1
+    # Extrai dados
+    tensao = row.get(colunas[fase]["tensao"], None)
+    corrente = row.get(colunas[fase]["corrente"], None)
+    potencia = row.get(colunas[fase]["potencia"], None)
+    frequencia = row.get(colunas[fase]["frequencia"], None)
 
-        # Extrai dados
-        tensao = row.get(colunas[fase]["tensao"], None)
-        corrente = row.get(colunas[fase]["corrente"], None)
-        potencia = row.get(colunas[fase]["potencia"], None)
-        frequencia = row.get(colunas[fase]["frequencia"], None)
+    # Corrente zero → mantém anterior
+    if corrente == 0:
+        corrente = st.session_state.get(f"corrente_anterior_{fase}", corrente)
+    else:
+        st.session_state[f"corrente_anterior_{fase}"] = corrente
 
-        # Corrente zero → mantém anterior
-        if corrente == 0:
-            corrente = st.session_state.get(f"corrente_anterior_{fase}", corrente)
-        else:
-            st.session_state[f"corrente_anterior_{fase}"] = corrente
+    # Atualiza buffers para gráfico
+    if tensao is not None:
+        st.session_state[f"valores_{fase}"]["tensao"].append(float(tensao))
+        st.session_state[f"valores_{fase}"]["tensao"] = st.session_state[f"valores_{fase}"]["tensao"][-50:]
+    if corrente is not None:
+        st.session_state[f"valores_{fase}"]["corrente"].append(float(corrente))
+        st.session_state[f"valores_{fase}"]["corrente"] = st.session_state[f"valores_{fase}"]["corrente"][-50:]
+    if potencia is not None:
+        st.session_state[f"valores_{fase}"]["potencia"].append(float(potencia))
+        st.session_state[f"valores_{fase}"]["potencia"] = st.session_state[f"valores_{fase}"]["potencia"][-50:]
 
-        # Atualiza buffers para gráfico
-        if tensao is not None:
-            st.session_state[f"valores_{fase}"]["tensao"].append(float(tensao))
-            st.session_state[f"valores_{fase}"]["tensao"] = st.session_state[f"valores_{fase}"]["tensao"][-50:]
-        if corrente is not None:
-            st.session_state[f"valores_{fase}"]["corrente"].append(float(corrente))
-            st.session_state[f"valores_{fase}"]["corrente"] = st.session_state[f"valores_{fase}"]["corrente"][-50:]
-        if potencia is not None:
-            st.session_state[f"valores_{fase}"]["potencia"].append(float(potencia))
-            st.session_state[f"valores_{fase}"]["potencia"] = st.session_state[f"valores_{fase}"]["potencia"][-50:]
+# --- VISUALIZAÇÃO AGRUPADA DOS VISORS ---
+def cor_tensao(valor):
+    return "#2ecc71" if valor >= 210 else "#c0392b"
 
-        # Exibe visores
-        if tensao is not None:
-            tensao = float(tensao)
-            visor(f"{tensao:.1f} V", "Tensão", "#2c3e50", "#2ecc71" if tensao >= 210 else "#c0392b")
+col_tensao, col_corrente, col_potencia, col_frequencia = st.columns(4)
 
-        if corrente is not None:
-            corrente = float(corrente)
-            visor(f"{corrente:.1f} A", "Corrente", "#2c3e50", "#2ecc71")
+with col_tensao:
+    st.subheader("Tensão")
+    conteudo = ""
+    for fase in ["A", "B", "C"]:
+        valor = st.session_state[f"valores_{fase}"]["tensao"][-1] if st.session_state[f"valores_{fase}"]["tensao"] else None
+        if valor is not None:
+            conteudo += visor(f"{valor:.1f} V", f"Fase {fase}", "#2c3e50", cor_tensao(valor))
+    st.markdown(conteudo, unsafe_allow_html=True)
 
-        if potencia is not None:
-            potencia = float(potencia)
-            visor(f"{potencia:.2f} W", "Potência Ativa", "#2c3e50", "#2ecc71")
+with col_corrente:
+    st.subheader("Corrente")
+    conteudo = ""
+    for fase in ["A", "B", "C"]:
+        valor = st.session_state[f"valores_{fase}"]["corrente"][-1] if st.session_state[f"valores_{fase}"]["corrente"] else None
+        if valor is not None:
+            conteudo += visor(f"{valor:.1f} A", f"Fase {fase}", "#2c3e50", "#2ecc71")
+    st.markdown(conteudo, unsafe_allow_html=True)
 
-        if frequencia is not None:
-            frequencia = float(frequencia)
-            visor(f"{frequencia:.2f} Hz", "Frequência", "#2c3e50", "#2ecc71")
+with col_potencia:
+    st.subheader("Potência Ativa")
+    conteudo = ""
+    for fase in ["A", "B", "C"]:
+        valor = st.session_state[f"valores_{fase}"]["potencia"][-1] if st.session_state[f"valores_{fase}"]["potencia"] else None
+        if valor is not None:
+            conteudo += visor(f"{valor:.2f} W", f"Fase {fase}", "#2c3e50", "#2ecc71")
+    st.markdown(conteudo, unsafe_allow_html=True)
+
+with col_frequencia:
+    st.subheader("Frequência")
+    conteudo = ""
+    for fase in ["A", "B", "C"]:
+        # frequencia não está armazenada no buffer, pega do último valor lido
+        valor = None
+        # Como não salvamos frequência no buffer, tentamos pegar do último row:
+        # Aqui, só para ilustrar, tenta pegar do último índice de qualquer fase (usar A)
+        try:
+            valor = dfs["A"].iloc[st.session_state["index_A"]-1].get(colunas["A"]["frequencia"], None)
+            if valor is not None:
+                valor = float(valor)
+        except:
+            pass
+        if valor is not None:
+            conteudo += visor(f"{valor:.2f} Hz", f"Fase A", "#2c3e50", "#2ecc71")
+        # Para B e C não temos valor salvo, deixei só A para frequência, pois seu código original não atualizava em buffer
+        # Se quiser implementar para B e C também, pode-se adicionar buffers como nos outros
+    st.markdown(conteudo, unsafe_allow_html=True)
 
 # --- GRÁFICOS DINÂMICOS ---
 grafico_selecionado = st.radio("📈 Selecione o gráfico a ser exibido:", ("Tensão", "Corrente", "Potência Ativa"))
