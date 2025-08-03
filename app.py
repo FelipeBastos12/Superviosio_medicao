@@ -52,13 +52,6 @@ dfs = {fase: load_and_clean_csv(path) for fase, path in PATHS.items()}
 # --- CONFIGURAÇÃO DE PÁGINA ---
 st.set_page_config(page_title="Supervisório LAT Trifásico", layout="wide")
 
-# --- SELETOR DE DIA ---
-dia_escolhido = st.radio("Selecionar dia para visualização:", ("Dia Atual", "Dia Anterior"))
-
-# --- AUTOREFRESH (só para Dia Atual) ---
-if dia_escolhido == "Dia Atual":
-    st_autorefresh(interval=REFRESH_INTERVAL_MS, limit=None, key="auto_refresh")
-
 # --- INICIALIZAÇÃO DE SESSION STATE ---
 for fase in ["A", "B", "C"]:
     if f"index_{fase}" not in st.session_state:
@@ -76,6 +69,13 @@ with col_logo:
     st.image("FDJ_engenharia.jpg", width=500)
 with col_titulo:
     st.markdown("<h1 style='padding-top: 90px;'>Supervisório de Medição Elétrica</h1>", unsafe_allow_html=True)
+
+# --- SELETOR DE DIA ---
+dia_escolhido = st.radio("Selecionar dia para visualização:", ("Dia Atual", "Dia Anterior"))
+
+# --- AUTOREFRESH (só para Dia Atual) ---
+if dia_escolhido == "Dia Atual":
+    st_autorefresh(interval=REFRESH_INTERVAL_MS, limit=None, key="auto_refresh")
 
 # --- FUNÇÃO PARA PEGAR OS DADOS SEGUNDO O DIA SELECIONADO ---
 def get_dados(fase, dia):
@@ -289,3 +289,4 @@ fig.update_layout(
     template="simple_white"
 )
 st.plotly_chart(fig, use_container_width=True)
+
