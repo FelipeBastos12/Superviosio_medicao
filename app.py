@@ -104,8 +104,9 @@ for fase in ["A", "B", "C"]:
 def cor_tensao(valor):
     return "#2ecc71" if valor >= 210 else "#c0392b"
     
-def criar_visor_agrupado_interno(titulo, unidade, cor_fundo):
-    conteudo_corpo = []
+def gerar_painel_html(titulo, unidade):
+    html_fases = []
+    
     for fase in ["A", "B", "C"]:
         valor = None
         cor_texto_fase = "#ffffff"
@@ -129,7 +130,7 @@ def criar_visor_agrupado_interno(titulo, unidade, cor_fundo):
                 valor = f"{valor_num:.2f}"
         
         if valor is not None:
-            conteudo_corpo.append(f"""
+            html_fases.append(f"""
                 <div style='
                     color: {cor_texto_fase};
                     padding: 5px;
@@ -141,35 +142,33 @@ def criar_visor_agrupado_interno(titulo, unidade, cor_fundo):
                 </div>
             """)
 
-    conteudo_corpo_str = "".join(conteudo_corpo)
-    
-    html_final = f"""
-    <div style='
-        background-color: {cor_fundo};
-        color: #ffffff;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 10px;
-    '>
-        <h4 style='text-align: center;'>{titulo}</h4>
-        {conteudo_corpo_str}
-    </div>
+    html_completo = f"""
+        <div style='
+            background-color: #2c3e50;
+            color: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        '>
+            <h4 style='text-align: center;'>{titulo}</h4>
+            {''.join(html_fases)}
+        </div>
     """
-    return html_final
+    return html_completo
 
 col_tensao, col_corrente, col_potencia, col_frequencia = st.columns(4)
 
 with col_tensao:
-    st.markdown(criar_visor_agrupado_interno("Tensão", "V", "#2c3e50"), unsafe_allow_html=True)
+    st.markdown(gerar_painel_html("Tensão", "V"), unsafe_allow_html=True)
 
 with col_corrente:
-    st.markdown(criar_visor_agrupado_interno("Corrente", "A", "#2c3e50"), unsafe_allow_html=True)
+    st.markdown(gerar_painel_html("Corrente", "A"), unsafe_allow_html=True)
     
 with col_potencia:
-    st.markdown(criar_visor_agrupado_interno("Potência Ativa", "W", "#2c3e50"), unsafe_allow_html=True)
+    st.markdown(gerar_painel_html("Potência Ativa", "W"), unsafe_allow_html=True)
     
 with col_frequencia:
-    st.markdown(criar_visor_agrupado_interno("Frequência", "Hz", "#2c3e50"), unsafe_allow_html=True)
+    st.markdown(gerar_painel_html("Frequência", "Hz"), unsafe_allow_html=True)
 
 # --- GRÁFICOS DINÂMICOS ---
 grafico_selecionado = st.radio("📈 Selecione o gráfico a ser exibido:", ("Tensão", "Corrente", "Potência Ativa"))
