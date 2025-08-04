@@ -544,10 +544,7 @@ if plotted:
     elif grafico_selecionado == "Potência Aparente":
         fig.update_layout(title="Potência Aparente nas Fases", yaxis_title="Potência Aparente (VA)")
     elif grafico_selecionado == "Potência Aparente Total":
-        fig.update_layout(title="Potência Aparente Total", yaxis_title="Potência Aparente (VA)")
-    elif grafico_selecionado == "Potência Ativa Total":
-        # NOVO GRÁFICO E ALTERAÇÃO SOLICITADA: Y-axis de 0 a 400.000 (400k)
-        fig.update_layout(title="Potência Ativa Total", yaxis_title="Potência Ativa (W)", yaxis=dict(range=[0, 400000]))
+        fig.update_layout(title="Potência Aparente Total", yaxis_title="Potência Aparente (VA)", yaxis=dict(range=[0, 400000]))
     elif grafico_selecionado == "Fator de Potência Total":
         # ALTERAÇÃO SOLICITADA: Y-axis de 0.6 a 1.0
         fig.update_layout(title="Fator de Potência Total", yaxis_title="Fator de Potência", yaxis=dict(range=[0.6, 1.0]))
@@ -577,4 +574,5 @@ with st.expander("Log de alarmes"):
             st.error(erro)
     else:
         st.info("Nenhum alarme registrado.")
+
 
