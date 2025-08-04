@@ -529,7 +529,7 @@ elif grafico_selecionado in ["Potência Aparente Total", "Fator de Potência Tot
 
 
 if plotted:
-    date_23_05 = datetime(2025, 5, 23)
+    date_23_05 = datetime(2025, 8, 1)
     
     if grafico_selecionado == "Tensão":
         fig.update_layout(title="Tensão nas Fases", yaxis_title="Tensão (V)", yaxis=dict(range=[190, 250]))
@@ -567,4 +567,5 @@ with st.expander("Log de alarmes"):
             st.error(erro)
     else:
         st.info("Nenhum alarme registrado.")
+
 
