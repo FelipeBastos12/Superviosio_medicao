@@ -561,9 +561,10 @@ else:
     st.warning(f"Não há dados para exibir no gráfico de {grafico_selecionado}.")
 
 # --- LOG DE ERROS (agora em um expander) ---
-with st.expander("Clique para ver o Log de Erros"):
+with st.expander(Log de alarmes"):
     if st.session_state["log_erros"]:
         for erro in reversed(st.session_state["log_erros"]):
             st.error(erro)
     else:
         st.info("Nenhum alarme registrado.")
+
