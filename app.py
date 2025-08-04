@@ -250,7 +250,8 @@ for fase in ["A", "B", "C"]:
         y_key = grafico_key_map.get(grafico_selecionado)
         if y_key and dados.get(y_key):
             y_data = dados[y_key]
-            modo = "lines+markers"
+            # Alterado para mostrar apenas linhas, sem marcadores
+            modo = "lines"
             plotted = True
         else:
             continue
@@ -307,4 +308,3 @@ if plotted:
     st.plotly_chart(fig, use_container_width=True)
 else:
     st.warning(f"Não há dados para exibir no gráfico de {grafico_selecionado}.")
-
