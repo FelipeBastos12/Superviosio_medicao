@@ -121,7 +121,7 @@ for fase in ["A", "B", "C"]:
     if f"valores_{fase}" not in st.session_state:
         st.session_state[f"valores_{fase}"] = {
             "tensao": [], "corrente": [], "potencia": [], "timestamp": [],
-            "potencia_ativa": [], "potencia_reativa": []
+            "potencia_ativa": [], "potencia_reativa": [], "consumo": []
         }
     if f"corrente_anterior_{fase}" not in st.session_state:
         st.session_state[f"corrente_anterior_{fase}"] = 0.0
@@ -169,7 +169,7 @@ def atualizar_dados_dia_atual(fase, df):
         # AQUI É ONDE O DIA MUDA - FIM DA SIMULAÇÃO DO DIA ANTERIOR
         if fase == "C":
             # Calcula e adiciona o consumo do dia anterior ao acumulado
-            df_dia_anterior = df[df["Timestamp"].dt.date == st.session_state["dia_anterior"]]
+            df_dia_anterior = dfs["A"][dfs["A"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
             if not df_dia_anterior.empty and 'C (kWh)' in df_dia_anterior.columns:
                 consumo_do_dia_anterior = calcular_consumo_diario(df_dia_anterior)
                 st.session_state["consumo_acumulado"] += consumo_do_dia_anterior
@@ -191,6 +191,7 @@ def atualizar_dados_dia_atual(fase, df):
         st.session_state[f"valores_{fase}"]["timestamp"] = []
         st.session_state[f"valores_{fase}"]["potencia_ativa"] = []
         st.session_state[f"valores_{fase}"]["potencia_reativa"] = []
+        st.session_state[f"valores_{fase}"]["consumo"] = []
         
     idx = st.session_state[f"index_{fase}"]
     row = df_dia_atual.iloc[idx]
@@ -201,6 +202,7 @@ def atualizar_dados_dia_atual(fase, df):
     potencia = row.get(colunas[fase]["potencia"], None)
     potencia_ativa = row.get(colunas[fase]["potencia_ativa"], None)
     potencia_reativa = row.get(colunas[fase]["potencia_reativa"], None)
+    consumo = row.get(colunas[fase]["consumo"], None)
     timestamp = row.get("Timestamp", None)
 
     if corrente == 0:
@@ -218,6 +220,8 @@ def atualizar_dados_dia_atual(fase, df):
         st.session_state[f"valores_{fase}"]["potencia_ativa"].append(float(potencia_ativa))
     if potencia_reativa is not None:
         st.session_state[f"valores_{fase}"]["potencia_reativa"].append(float(potencia_reativa))
+    if consumo is not None:
+        st.session_state[f"valores_{fase}"]["consumo"].append(float(consumo))
     if timestamp is not None:
         st.session_state[f"valores_{fase}"]["timestamp"].append(timestamp)
 
@@ -264,7 +268,7 @@ for fase in ["A", "B", "C"]:
                     row = df_dia_escolhido.iloc[st.session_state[f"index_{fase}"] - 1]
                     frequencia = row.get(colunas[fase]["frequencia"], 0)
                     fator_potencia = row.get(colunas[fase]["fator_de_potencia"], 0)
-                    consumo = row.get(colunas[fase]["consumo"], 0)
+                    consumo = dados_sessao["consumo"][-1]
                 else:
                     frequencia, fator_potencia, consumo = 0.0, 0.0, 0.0
             else:
@@ -487,7 +491,7 @@ if dia_escolhido == "Dia Atual":
     demanda_maxima = demanda_maxima_dia_atual
     
     # Adiciona o consumo do dia atual (em tempo real) ao consumo acumulado
-    consumo_dia_atual = calcular_consumo_diario(dfs["A"][dfs["A"]["Timestamp"].dt.date == st.session_state["dia_atual"]])
+    consumo_dia_atual = st.session_state["valores_A"]["consumo"][-1] - st.session_state["valores_A"]["consumo"][0] if len(st.session_state["valores_A"]["consumo"]) > 1 else 0
     consumo_total_para_calculo = st.session_state["consumo_acumulado"] + consumo_dia_atual
 else: # Dia Anterior
     df_A = dfs["A"][dfs["A"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
