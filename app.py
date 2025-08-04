@@ -443,37 +443,33 @@ S_total_inst = np.sqrt(P_total_inst**2 + Q_total_inst**2)
 FP_total_inst = P_total_inst / S_total_inst if S_total_inst != 0 else 0
 
 demand_window = 5 # 5 pontos de 3min = 15 minutos
-if dia_escolhido == "Dia Atual":
-    potencia_ativa_faseA = st.session_state["valores_A"]["potencia_ativa"]
-    potencia_ativa_faseB = st.session_state["valores_B"]["potencia_ativa"]
-    potencia_ativa_faseC = st.session_state["valores_C"]["potencia_ativa"]
 
-    min_len_p_ativa = min(len(potencia_ativa_faseA), len(potencia_ativa_faseB), len(potencia_ativa_faseC))
-    
-    if min_len_p_ativa >= demand_window:
-        total_potencia_ativa_historico = [sum(p) for p in zip(potencia_ativa_faseA[:min_len_p_ativa], potencia_ativa_faseB[:min_len_p_ativa], potencia_ativa_faseC[:min_len_p_ativa])]
-        total_series = pd.Series(total_potencia_ativa_historico)
-        demanda_maxima = total_series.rolling(window=demand_window).mean().max()
-    else:
-        demanda_maxima = 0.0
-else: # Dia Anterior
-    df_A = dfs["A"][dfs["A"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
-    df_B = dfs["B"][dfs["B"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
-    df_C = dfs["C"][dfs["C"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
+# --- CÁLCULO DA DEMANDA MÁXIMA DO DIA ATUAL EM TEMPO REAL ---
+potencia_ativa_faseA = st.session_state["valores_A"]["potencia_ativa"]
+potencia_ativa_faseB = st.session_state["valores_B"]["potencia_ativa"]
+potencia_ativa_faseC = st.session_state["valores_C"]["potencia_ativa"]
 
-    if not df_A.empty and not df_B.empty and not df_C.empty:
-        min_len_df = min(len(df_A), len(df_B), len(df_C))
-        df_A = df_A.iloc[:min_len_df]
-        df_B = df_B.iloc[:min_len_df]
-        df_C = df_C.iloc[:min_len_df]
-        
-        if len(df_A) >= demand_window:
-            total_potencia_ativa_historico = df_A[colunas["A"]["potencia_ativa"]].add(df_B[colunas["B"]["potencia_ativa"]], fill_value=0).add(df_C[colunas["C"]["potencia_ativa"]], fill_value=0)
-            demanda_maxima = total_potencia_ativa_historico.rolling(window=demand_window).mean().max()
-        else:
-            demanda_maxima = 0.0
-    else:
-        demanda_maxima = 0.0
+min_len_p_ativa = min(len(potencia_ativa_faseA), len(potencia_ativa_faseB), len(potencia_ativa_faseC))
+
+demanda_maxima_realtime = 0.0
+if min_len_p_ativa >= demand_window:
+    total_potencia_ativa_historico = [sum(p) for p in zip(potencia_ativa_faseA[:min_len_p_ativa], potencia_ativa_faseB[:min_len_p_ativa], potencia_ativa_faseC[:min_len_p_ativa])]
+    total_series = pd.Series(total_potencia_ativa_historico)
+    demanda_maxima_realtime = total_series.rolling(window=demand_window).mean().max()
+
+
+# --- CÁLCULO DA CONTA ESTIMADA DO DIA ATUAL EM TEMPO REAL ---
+consumo_dia_atual_A = st.session_state["valores_A"]["consumo"][-1] if st.session_state["valores_A"]["consumo"] else 0
+consumo_dia_atual_B = st.session_state["valores_B"]["consumo"][-1] if st.session_state["valores_B"]["consumo"] else 0
+consumo_dia_atual_C = st.session_state["valores_C"]["consumo"][-1] if st.session_state["valores_C"]["consumo"] else 0
+
+total_consumo_kwh_realtime = consumo_dia_atual_A + consumo_dia_atual_B + consumo_dia_atual_C
+
+custo_bandeira_verde = TARIFAS["BANDEIRAS"]["Verde"]
+custo_base_realtime = total_consumo_kwh_realtime * (TARIFAS["TE"] + TARIFAS["TUSD"] + custo_bandeira_verde)
+impostos_realtime = custo_base_realtime * (TARIFAS["ICMS"] + TARIFAS["PIS"] + TARIFAS["COFINS"])
+conta_estimada_realtime = custo_base_realtime + impostos_realtime
+
 
 st.markdown("<h3>Grandezas Totais e Demanda</h3>", unsafe_allow_html=True)
 col7, col8, col9 = st.columns(3)
@@ -483,108 +479,37 @@ with col7:
 with col8:
     visor_total("Fator de Potência Total", FP_total_inst, "", timestamp_ultimo_dado, limite_inferior=FATOR_POTENCIA_MIN)
 with col9:
-    visor_total("Demanda Máxima", demanda_maxima, "W", timestamp_ultimo_dado, limite_superior=DEMANDA_MAXIMA)
+    visor_total("Demanda Máxima do Dia Atual", demanda_maxima_realtime, "W", timestamp_ultimo_dado, limite_superior=DEMANDA_MAXIMA)
 
+st.markdown("---")
+st.markdown("<h3>Análise de Custo em Tempo Real</h3>", unsafe_allow_html=True)
 
-# --- ADICIONANDO VISORES DE MAIOR DEMANDA E CONTA DE ENERGIA ---
-
-# --- CÁLCULO DA MAIOR DEMANDA DIÁRIA DO HISTÓRICO ---
-maior_demanda_historico = 0.0
-dia_maior_demanda = "N/A"
-
-# Verificando se há dados para todas as fases
-if not dfs["A"].empty and not dfs["B"].empty and not dfs["C"].empty:
-    df_combined = pd.DataFrame()
-    df_combined["Timestamp"] = dfs["A"]["Timestamp"]
-    df_combined["Potencia_Ativa_Total"] = dfs["A"][colunas["A"]["potencia_ativa"]] + dfs["B"][colunas["B"]["potencia_ativa"]] + dfs["C"][colunas["C"]["potencia_ativa"]]
-    
-    total_series_historico = df_combined.set_index("Timestamp")["Potencia_Ativa_Total"]
-    total_demand_historico = total_series_historico.rolling(window=demand_window).mean()
-    
-    if not total_demand_historico.empty:
-        max_demand_point = total_demand_historico.idxmax()
-        maior_demanda_historico = total_demand_historico.max()
-        dia_maior_demanda = max_demand_point.strftime("%d/%m/%Y")
-
-
-# --- CÁLCULO DA CONTA ESTIMADA DE ENERGIA ---
-total_consumo_kwh = 0
-if not dfs["A"].empty and not dfs["B"].empty and not dfs["C"].empty:
-    total_consumo_kwh += dfs["A"][colunas["A"]["consumo"]].iloc[-1] if not dfs["A"].empty else 0
-    total_consumo_kwh += dfs["B"][colunas["B"]["consumo"]].iloc[-1] if not dfs["B"].empty else 0
-    total_consumo_kwh += dfs["C"][colunas["C"]["consumo"]].iloc[-1] if not dfs["C"].empty else 0
-    
-    st.markdown("---")
-    st.markdown("<h3>Análise de Custo</h3>", unsafe_allow_html=True)
-    
-    col_bandeira, col_maior_demanda, col_conta = st.columns([1, 1, 2])
-    
-    with col_bandeira:
-        bandeira_selecionada = st.selectbox(
-            "Selecione a Bandeira Tarifária:",
-            options=list(TARIFAS["BANDEIRAS"].keys()),
-            index=0
-        )
-    
-    custo_bandeira = TARIFAS["BANDEIRAS"][bandeira_selecionada]
-    
-    # Cálculo da conta
-    custo_base = total_consumo_kwh * (TARIFAS["TE"] + TARIFAS["TUSD"] + custo_bandeira)
-    impostos = custo_base * (TARIFAS["ICMS"] + TARIFAS["PIS"] + TARIFAS["COFINS"])
-    conta_estimada = custo_base + impostos
-    
-    
-    with col_maior_demanda:
-        st.markdown(f"""
+col_conta = st.columns(1)[0]
+with col_conta:
+    st.markdown(f"""
+    <div style='
+        background-color: #2c3e50;
+        padding: 15px;
+        border-radius: 15px;
+        margin-bottom: 15px;
+    '>
+        <h3 style='color:white; text-align:center;'>Conta Estimada do Dia Atual</h3>
         <div style='
-            background-color: #2c3e50;
+            background-color: #34495e;
+            color: #2ecc71;
             padding: 15px;
-            border-radius: 15px;
-            margin-bottom: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            width: 100%;
         '>
-            <h3 style='color:white; text-align:center;'>Maior Demanda Histórica</h3>
-            <div style='
-                background-color: #34495e;
-                color: white;
-                padding: 15px;
-                border-radius: 10px;
-                text-align: center;
-                font-size: 20px;
-                font-weight: bold;
-                width: 100%;
-            '>
-                Dia: {dia_maior_demanda}
-                <br>
-                Valor: {maior_demanda_historico:.2f} W
-            </div>
+            Consumo Total: {total_consumo_kwh_realtime:.2f} kWh
+            <br>
+            Valor Estimado: R$ {conta_estimada_realtime:.2f}
         </div>
-        """, unsafe_allow_html=True)
-        
-    with col_conta:
-        st.markdown(f"""
-        <div style='
-            background-color: #2c3e50;
-            padding: 15px;
-            border-radius: 15px;
-            margin-bottom: 15px;
-        '>
-            <h3 style='color:white; text-align:center;'>Conta Estimada</h3>
-            <div style='
-                background-color: #34495e;
-                color: #2ecc71;
-                padding: 15px;
-                border-radius: 10px;
-                text-align: center;
-                font-size: 20px;
-                font-weight: bold;
-                width: 100%;
-            '>
-                Consumo Total: {total_consumo_kwh:.2f} kWh
-                <br>
-                Valor Estimado: R$ {conta_estimada:.2f}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+    </div>
+    """, unsafe_allow_html=True)
 
 
 # --- GRÁFICOS DINÂMICOS ---
