@@ -4,7 +4,6 @@ import plotly.graph_objs as go
 from streamlit_autorefresh import st_autorefresh
 from datetime import datetime, timedelta
 import numpy as np
-import collections
 
 # --- CONFIGURAÇÕES ---
 PATHS = {
@@ -16,14 +15,10 @@ REFRESH_INTERVAL_MS = 500
 
 # --- LIMITES DE OPERAÇÃO ---
 TENSÃO_MIN = 200.0  # Volts
-TENSÃO_MAX = 250.0  # Volts
+TENSÃO_MAX = 240.0  # Volts
 CORRENTE_MAX = 1.0  # Amperes
 POTENCIA_APARENTE_MAX = 4500.0  # VA (por fase)
 POTENCIA_APARENTE_TOTAL_MAX = 12000.0 # VA (total)
-FREQUENCIA_MIN = 59.5 # Hz (para sistema 60Hz)
-FREQUENCIA_MAX = 60.5 # Hz (para sistema 60Hz)
-FATOR_POTENCIA_MIN = 0.85 # Mínimo recomendado
-DEMANDA_MAXIMA = 10000.0 # Exemplo de limite de demanda máxima (W)
 
 # --- NOMES DAS COLUNAS POR FASE ---
 colunas = {
@@ -103,14 +98,9 @@ for fase in ["A", "B", "C"]:
         }
     if f"corrente_anterior_{fase}" not in st.session_state:
         st.session_state[f"corrente_anterior_{fase}"] = 0.0
-
+        
 if "grafico_selecionado" not in st.session_state:
     st.session_state["grafico_selecionado"] = "Tensão"
-
-# Inicializa o log de erros como uma deque para limitar o tamanho
-if "log_erros" not in st.session_state:
-    st.session_state["log_erros"] = collections.deque(maxlen=10)
-
 
 # --- Layout com logo e título lado a lado ---
 col_logo, col_titulo = st.columns([1, 5])
@@ -228,43 +218,25 @@ def visor_fases(label, valores_por_fase, unidade):
     cor_fundo_alerta = "#c0392b"
     cor_fundo_atual = cor_fundo_default
     
-    # Define as cores do texto e verifica alarmes
+    # Define as cores do texto com base nas regras do usuário
     cores_texto = {}
     for fase in ["A", "B", "C"]:
-        valor = valores_por_fase[fase]
         if label == "Tensão":
-            if TENSÃO_MIN <= valor <= TENSÃO_MAX:
+            if TENSÃO_MIN <= valores_por_fase[fase] <= TENSÃO_MAX:
                 cores_texto[fase] = "#2ecc71" # Verde
             else:
                 cores_texto[fase] = "#c0392b" # Vermelho
                 cor_fundo_atual = cor_fundo_alerta # Aciona o alarme de fundo
-                st.session_state["log_erros"].append(f"[{datetime.now().strftime('%H:%M:%S')}] ALARME de Tensão na Fase {fase}: {valor:.2f} {unidade}")
         elif label == "Corrente":
-            cores_texto[fase] =  "#2ecc71" # Verde
-            if valor > CORRENTE_MAX:
-                cores_texto[fase] = "#c0392b" # Vermelho
-                cor_fundo_atual = cor_fundo_alerta
-                st.session_state["log_erros"].append(f"[{datetime.now().strftime('%H:%M:%S')}] ALARME de Corrente na Fase {fase}: {valor:.2f} {unidade}")
+            cores_texto[fase] = "#ffffff" # Branco
+            if valores_por_fase[fase] > CORRENTE_MAX:
+                cor_fundo_atual = cor_fundo_alerta # Aciona o alarme de fundo
         elif label == "Potência Aparente":
-            cores_texto[fase] =  "#2ecc71" # Verde
-            if valor > POTENCIA_APARENTE_MAX:
-                cores_texto[fase] = "#c0392b" # Vermelho
-                cor_fundo_atual = cor_fundo_alerta
-                st.session_state["log_erros"].append(f"[{datetime.now().strftime('%H:%M:%S')}] ALARME de Potência na Fase {fase}: {valor:.2f} {unidade}")
-        elif label == "Frequência":
-            cores_texto[fase] =  "#2ecc71" # Verde
-            if not (FREQUENCIA_MIN <= valor <= FREQUENCIA_MAX):
-                cores_texto[fase] = "#c0392b" # Vermelho
-                cor_fundo_atual = cor_fundo_alerta
-                st.session_state["log_erros"].append(f"[{datetime.now().strftime('%H:%M:%S')}] ALARME de Frequência na Fase {fase}: {valor:.2f} {unidade}")
-        elif label == "Fator de Potência":
-            cores_texto[fase] =  "#2ecc71" # Verde
-            if valor < FATOR_POTENCIA_MIN:
-                cores_texto[fase] = "#c0392b" # Vermelho
-                cor_fundo_atual = cor_fundo_alerta
-                st.session_state["log_erros"].append(f"[{datetime.now().strftime('%H:%M:%S')}] ALARME de Fator de Potência na Fase {fase}: {valor:.2f}")
+            cores_texto[fase] = "#ffffff" # Branco
+            if valores_por_fase[fase] > POTENCIA_APARENTE_MAX:
+                cor_fundo_atual = cor_fundo_alerta # Aciona o alarme de fundo
         else:
-            cores_texto[fase] =  "#2ecc71" # Verde
+            cores_texto[fase] = "#ffffff" # Branco padrão para outros visores
     
     st.markdown(f"""
     <div style='
@@ -316,26 +288,13 @@ def visor_fases(label, valores_por_fase, unidade):
     """, unsafe_allow_html=True)
 
 # --- VISOR PERSONALIZADO PARA VALORES TOTAIS ---
-def visor_total(label, valor_total, unidade, limite_superior=None, limite_inferior=None):
+def visor_total(label, valor_total, unidade, limite_superior=None):
     cor_fundo_default = "#2c3e50"
     cor_fundo_alerta = "#c0392b"
     cor_fundo_atual = cor_fundo_default
     
-    alarme_acionado = False
-    
-    cor_texto_default = "#2ecc71"
-    cor_texto_alerta = "#c0392b"
-    cor_texto_atual = cor_texto_default
-
-    if limite_superior is not None and valor_total > limite_superior:
-        alarme_acionado = True
-    if limite_inferior is not None and valor_total < limite_inferior:
-        alarme_acionado = True
-    
-    if alarme_acionado:
+    if limite_superior and valor_total > limite_superior:
         cor_fundo_atual = cor_fundo_alerta
-        cor_texto_atual = cor_texto_alerta
-        st.session_state["log_erros"].append(f"[{datetime.now().strftime('%H:%M:%S')}] ALARME Total de {label}: {valor_total:.2f} {unidade}")
 
     st.markdown(f"""
     <div style='
@@ -347,7 +306,7 @@ def visor_total(label, valor_total, unidade, limite_superior=None, limite_inferi
         <h3 style='color:white; text-align:center;'>{label}</h3>
         <div style='
             background-color: #34495e;
-            color: {cor_texto_atual};
+            color: #ffffff;
             padding: 15px;
             border-radius: 10px;
             text-align: center;
@@ -418,9 +377,9 @@ col7, col8, col9 = st.columns(3)
 with col7:
     visor_total("Potência Aparente Total", S_total_inst, "VA", limite_superior=POTENCIA_APARENTE_TOTAL_MAX)
 with col8:
-    visor_total("Fator de Potência Total", FP_total_inst, "", limite_inferior=FATOR_POTENCIA_MIN)
+    visor_total("Fator de Potência Total", FP_total_inst, "")
 with col9:
-    visor_total("Demanda Máxima", demanda_maxima, "W", limite_superior=DEMANDA_MAXIMA)
+    visor_total("Demanda Máxima", demanda_maxima, "W")
 
 
 # --- GRÁFICOS DINÂMICOS ---
@@ -555,12 +514,3 @@ if plotted:
     st.plotly_chart(fig, use_container_width=True)
 else:
     st.warning(f"Não há dados para exibir no gráfico de {grafico_selecionado}.")
-
-# --- LOG DE ERROS ---
-st.markdown("<h3>Log de Erros</h3>", unsafe_allow_html=True)
-if st.session_state["log_erros"]:
-    for erro in reversed(st.session_state["log_erros"]):
-        st.error(erro)
-else:
-    st.info("Nenhum alarme registrado.")
-
