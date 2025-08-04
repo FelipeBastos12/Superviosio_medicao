@@ -86,7 +86,8 @@ for fase in ["A", "B", "C"]:
         st.session_state[f"index_{fase}"] = 0
     if f"valores_{fase}" not in st.session_state:
         st.session_state[f"valores_{fase}"] = {
-            "tensao": [], "corrente": [], "potencia": [], "timestamp": []
+            "tensao": [], "corrente": [], "potencia": [], "timestamp": [],
+            "potencia_ativa": [], "potencia_reativa": [] # Adicionado para calculo de totais
         }
     if f"corrente_anterior_{fase}" not in st.session_state:
         st.session_state[f"corrente_anterior_{fase}"] = 0.0
@@ -109,6 +110,8 @@ def atualizar_dados_dia_atual(fase, df):
         st.session_state[f"valores_{fase}"]["corrente"] = []
         st.session_state[f"valores_{fase}"]["potencia"] = []
         st.session_state[f"valores_{fase}"]["timestamp"] = []
+        st.session_state[f"valores_{fase}"]["potencia_ativa"] = []
+        st.session_state[f"valores_{fase}"]["potencia_reativa"] = []
         
     idx = st.session_state[f"index_{fase}"]
     row = df.iloc[idx]
@@ -117,6 +120,8 @@ def atualizar_dados_dia_atual(fase, df):
     tensao = row.get(colunas[fase]["tensao"], None)
     corrente = row.get(colunas[fase]["corrente"], None)
     potencia = row.get(colunas[fase]["potencia"], None)
+    potencia_ativa = row.get(colunas[fase]["potencia_ativa"], None)
+    potencia_reativa = row.get(colunas[fase]["potencia_reativa"], None)
     timestamp = row.get("Timestamp", None)
 
     if corrente == 0:
@@ -130,6 +135,10 @@ def atualizar_dados_dia_atual(fase, df):
         st.session_state[f"valores_{fase}"]["corrente"].append(float(corrente))
     if potencia is not None:
         st.session_state[f"valores_{fase}"]["potencia"].append(float(potencia))
+    if potencia_ativa is not None:
+        st.session_state[f"valores_{fase}"]["potencia_ativa"].append(float(potencia_ativa))
+    if potencia_reativa is not None:
+        st.session_state[f"valores_{fase}"]["potencia_reativa"].append(float(potencia_reativa))
     if timestamp is not None:
         st.session_state[f"valores_{fase}"]["timestamp"].append(timestamp)
 
@@ -164,12 +173,12 @@ for fase in ["A", "B", "C"]:
                 tensao = dados_sessao["tensao"][last_idx]
                 corrente = dados_sessao["corrente"][last_idx]
                 potencia = dados_sessao["potencia"][last_idx]
+                potencia_ativa = dados_sessao["potencia_ativa"][last_idx]
+                potencia_reativa = dados_sessao["potencia_reativa"][last_idx]
                 row = df.iloc[st.session_state[f"index_{fase}"] - 1]
                 frequencia = row.get(colunas[fase]["frequencia"], 0)
                 fator_potencia = row.get(colunas[fase]["fator_de_potencia"], 0)
                 consumo = row.get(colunas[fase]["consumo"], 0)
-                potencia_ativa = row.get(colunas[fase]["potencia_ativa"], 0)
-                potencia_reativa = row.get(colunas[fase]["potencia_reativa"], 0)
             else:
                 tensao, corrente, potencia, frequencia, fator_potencia, consumo = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
                 potencia_ativa, potencia_reativa = 0.0, 0.0
@@ -304,17 +313,27 @@ FP_total_inst = P_total_inst / S_total_inst if S_total_inst != 0 else 0
 
 # Para demanda, vamos calcular a média móvel da potência ativa total
 demand_window = 5 # 5 pontos de 3min = 15 minutos
-total_potencia_ativa_historico = [dfs[fase][colunas[fase]["potencia_ativa"]].tolist() for fase in ["A", "B", "C"]]
-if total_potencia_ativa_historico and total_potencia_ativa_historico[0]:
-    total_potencia_ativa_historico_df = pd.DataFrame({f"fase_{f}": v for f, v in zip(["A", "B", "C"], total_potencia_ativa_historico)})
-    total_potencia_ativa_historico_df["total"] = total_potencia_ativa_historico_df.sum(axis=1)
+if dia_escolhido == "Dia Atual":
+    potencia_ativa_faseA = st.session_state["valores_A"]["potencia_ativa"]
+    potencia_ativa_faseB = st.session_state["valores_B"]["potencia_ativa"]
+    potencia_ativa_faseC = st.session_state["valores_C"]["potencia_ativa"]
     
-    if len(total_potencia_ativa_historico_df) >= demand_window:
-        demanda_maxima = total_potencia_ativa_historico_df["total"].rolling(window=demand_window).mean().max()
+    if len(potencia_ativa_faseA) >= demand_window:
+        total_potencia_ativa_historico = [sum(p) for p in zip(potencia_ativa_faseA, potencia_ativa_faseB, potencia_ativa_faseC)]
+        total_series = pd.Series(total_potencia_ativa_historico)
+        demanda_maxima = total_series.rolling(window=demand_window).mean().max()
     else:
         demanda_maxima = 0.0
-else:
-    demanda_maxima = 0.0
+else: # Dia Anterior
+    potencia_ativa_faseA = dfs["A"][colunas["A"]["potencia_ativa"]]
+    potencia_ativa_faseB = dfs["B"][colunas["B"]["potencia_ativa"]]
+    potencia_ativa_faseC = dfs["C"][colunas["C"]["potencia_ativa"]]
+
+    if not potencia_ativa_faseA.empty and len(potencia_ativa_faseA) >= demand_window:
+        total_potencia_ativa_historico = potencia_ativa_faseA.add(potencia_ativa_faseB, fill_value=0).add(potencia_ativa_faseC, fill_value=0)
+        demanda_maxima = total_potencia_ativa_historico.rolling(window=demand_window).mean().max()
+    else:
+        demanda_maxima = 0.0
 
 st.markdown("<h3>Grandezas Totais e Demanda</h3>", unsafe_allow_html=True)
 col7, col8, col9 = st.columns(3)
