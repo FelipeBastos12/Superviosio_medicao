@@ -445,22 +445,42 @@ FP_total_inst = P_total_inst / S_total_inst if S_total_inst != 0 else 0
 demand_window = 5 # 5 pontos de 3min = 15 minutos
 
 # --- CÁLCULO DA DEMANDA MÁXIMA DO DIA ATUAL EM TEMPO REAL ---
-potencia_ativa_faseA = st.session_state["valores_A"]["potencia_ativa"]
-potencia_ativa_faseB = st.session_state["valores_B"]["potencia_ativa"]
-potencia_ativa_faseC = st.session_state["valores_C"]["potencia_ativa"]
+if dia_escolhido == "Dia Atual":
+    potencia_ativa_faseA = st.session_state["valores_A"]["potencia_ativa"]
+    potencia_ativa_faseB = st.session_state["valores_B"]["potencia_ativa"]
+    potencia_ativa_faseC = st.session_state["valores_C"]["potencia_ativa"]
 
-min_len_p_ativa = min(len(potencia_ativa_faseA), len(potencia_ativa_faseB), len(potencia_ativa_faseC))
+    min_len_p_ativa = min(len(potencia_ativa_faseA), len(potencia_ativa_faseB), len(potencia_ativa_faseC))
+    
+    if min_len_p_ativa >= demand_window:
+        total_potencia_ativa_historico = [sum(p) for p in zip(potencia_ativa_faseA[:min_len_p_ativa], potencia_ativa_faseB[:min_len_p_ativa], potencia_ativa_faseC[:min_len_p_ativa])]
+        total_series = pd.Series(total_potencia_ativa_historico)
+        demanda_maxima = total_series.rolling(window=demand_window).mean().max()
+    else:
+        demanda_maxima = 0.0
+else: # Dia Anterior
+    df_A = dfs["A"][dfs["A"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
+    df_B = dfs["B"][dfs["B"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
+    df_C = dfs["C"][dfs["C"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
 
-demanda_maxima_realtime = 0.0
-if min_len_p_ativa >= demand_window:
-    total_potencia_ativa_historico = [sum(p) for p in zip(potencia_ativa_faseA[:min_len_p_ativa], potencia_ativa_faseB[:min_len_p_ativa], potencia_ativa_faseC[:min_len_p_ativa])]
-    total_series = pd.Series(total_potencia_ativa_historico)
-    demanda_maxima_realtime = total_series.rolling(window=demand_window).mean().max()
+    if not df_A.empty and not df_B.empty and not df_C.empty:
+        min_len_df = min(len(df_A), len(df_B), len(df_C))
+        
+        df_A = df_A.iloc[:min_len_df]
+        df_B = df_B.iloc[:min_len_df]
+        df_C = df_C.iloc[:min_len_df]
+        
+        if len(df_A) >= demand_window:
+            total_potencia_ativa_historico = df_A[colunas["A"]["potencia_ativa"]].add(df_B[colunas["B"]["potencia_ativa"]], fill_value=0).add(df_C[colunas["C"]["potencia_ativa"]], fill_value=0)
+            demanda_maxima = total_potencia_ativa_historico.rolling(window=demand_window).mean().max()
+        else:
+            demanda_maxima = 0.0
+    else:
+        demanda_maxima = 0.0
 
 
-# --- CÁLCULO DA CONTA ESTIMADA DO DIA ATUAL EM TEMPO REAL (CORRIGIDO) ---
-total_consumo_kwh_realtime = valores_consumo["A"] + valores_consumo["B"] + valores_consumo["C"]
-
+# --- CÁLCULO DA CONTA ESTIMADA DO DIA ATUAL EM TEMPO REAL ---
+total_consumo_kwh_realtime = sum(st.session_state["valores_A"]["potencia_ativa"]) / (1000 * 60) * 3 if st.session_state["valores_A"]["potencia_ativa"] else 0
 custo_bandeira_verde = TARIFAS["BANDEIRAS"]["Verde"]
 custo_base_realtime = total_consumo_kwh_realtime * (TARIFAS["TE"] + TARIFAS["TUSD"] + custo_bandeira_verde)
 impostos_realtime = custo_base_realtime * (TARIFAS["ICMS"] + TARIFAS["PIS"] + TARIFAS["COFINS"])
@@ -475,7 +495,7 @@ with col7:
 with col8:
     visor_total("Fator de Potência Total", FP_total_inst, "", timestamp_ultimo_dado, limite_inferior=FATOR_POTENCIA_MIN)
 with col9:
-    visor_total("Demanda Máxima do Dia Atual", demanda_maxima_realtime, "W", timestamp_ultimo_dado, limite_superior=DEMANDA_MAXIMA)
+    visor_total("Demanda Máxima", demanda_maxima, "W", timestamp_ultimo_dado, limite_superior=DEMANDA_MAXIMA)
 
 st.markdown("---")
 st.markdown("<h3>Análise de Custo em Tempo Real</h3>", unsafe_allow_html=True)
@@ -517,7 +537,7 @@ with col_left:
     st.button("Corrente", on_click=lambda: st.session_state.update(grafico_selecionado="Corrente"), use_container_width=True)
 
 with col_right:
-    st.button("Potência Aparente", on_on_click=lambda: st.session_state.update(grafico_selecionado="Potência Aparente"), use_container_width=True)
+    st.button("Potência Aparente", on_click=lambda: st.session_state.update(grafico_selecionado="Potência Aparente"), use_container_width=True)
     st.button("Potência Aparente Total", on_click=lambda: st.session_state.update(grafico_selecionado="Potência Aparente Total"), use_container_width=True)
     st.button("Fator de Potência Total", on_click=lambda: st.session_state.update(grafico_selecionado="Fator de Potência Total"), use_container_width=True)
 
