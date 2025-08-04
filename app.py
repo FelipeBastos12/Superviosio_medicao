@@ -244,11 +244,11 @@ def visor_fases(label, valores_por_fase, unidade):
             if not (FREQUENCIA_MIN <= valores_por_fase[fase] <= FREQUENCIA_MAX):
                 cor_fundo_atual = cor_fundo_alerta
         elif label == "Fator de Potência":
-            cores_texto[fase] = "#ffffff" # Branco
+            cores_texto[fase] =  "#2ecc71" # Verde
             if valores_por_fase[fase] < FATOR_POTENCIA_MIN:
                 cor_fundo_atual = cor_fundo_alerta
         else:
-            cores_texto[fase] = "#ffffff" # Branco padrão para outros visores
+            cores_texto[fase] =  "#2ecc71" # Verde
     
     st.markdown(f"""
     <div style='
@@ -532,4 +532,5 @@ if plotted:
     st.plotly_chart(fig, use_container_width=True)
 else:
     st.warning(f"Não há dados para exibir no gráfico de {grafico_selecionado}.")
+
 
