@@ -24,7 +24,6 @@ FREQUENCIA_MIN = 58.9 # Hz (para sistema 60Hz)
 FREQUENCIA_MAX = 62.0 # Hz (para sistema 60Hz)
 FATOR_POTENCIA_MIN = 0.85 # Mínimo recomendado
 DEMANDA_MAXIMA = 10000.0 # Exemplo de limite de demanda máxima (W)
-TARIFA_KWH = 0.80 # Exemplo de tarifa em R$/kWh (incluindo impostos)
 
 # --- NOMES DAS COLUNAS POR FASE ---
 colunas = {
@@ -189,6 +188,7 @@ def atualizar_dados_dia_atual(fase, df):
 for fase in ["A", "B", "C"]:
     atualizar_dados_dia_atual(fase, dfs[fase])
     
+st.markdown(f"**Visualizando dados do:**<br/>- **Dia Atual:** {st.session_state['dia_atual'].strftime('%d/%m/%Y')}<br/>- **Dia Anterior:** {st.session_state['dia_anterior'].strftime('%d/%m/%Y')}", unsafe_allow_html=True)
 st.markdown("---")
 
 # --- SELETOR DE DIA ---
@@ -470,114 +470,6 @@ with col9:
     visor_total("Demanda Máxima", demanda_maxima, "W", timestamp_ultimo_dado, limite_superior=DEMANDA_MAXIMA)
 
 
-# --- ANÁLISE ADICIONAL ---
-st.markdown("<h3>Análise Adicional</h3>", unsafe_allow_html=True)
-
-# Lógica para encontrar o dia com a maior demanda histórica
-maior_demanda_historica = 0.0
-dia_maior_demanda = "N/A"
-all_dates = set()
-for df in dfs.values():
-    if not df.empty:
-        all_dates.update(df["Timestamp"].dt.date.unique())
-
-for data_dia in sorted(list(all_dates)):
-    df_A = dfs["A"][dfs["A"]["Timestamp"].dt.date == data_dia]
-    df_B = dfs["B"][dfs["B"]["Timestamp"].dt.date == data_dia]
-    df_C = dfs["C"][dfs["C"]["Timestamp"].dt.date == data_dia]
-    
-    if not df_A.empty and not df_B.empty and not df_C.empty:
-        min_len_df = min(len(df_A), len(df_B), len(df_C))
-        if min_len_df >= demand_window:
-            df_A = df_A.iloc[:min_len_df]
-            df_B = df_B.iloc[:min_len_df]
-            df_C = df_C.iloc[:min_len_df]
-            
-            total_potencia_ativa_historico = df_A[colunas["A"]["potencia_ativa"]].add(df_B[colunas["B"]["potencia_ativa"]], fill_value=0).add(df_C[colunas["C"]["potencia_ativa"]], fill_value=0)
-            demanda_do_dia = total_potencia_ativa_historico.rolling(window=demand_window).mean().max()
-            
-            if demanda_do_dia > maior_demanda_historica:
-                maior_demanda_historica = demanda_do_dia
-                dia_maior_demanda = data_dia.strftime('%d/%m/%Y')
-
-# Lógica para a estimativa da conta
-if dia_escolhido == "Dia Atual":
-    total_consumo_kwh_dia = sum(st.session_state[f"valores_{fase}"]["consumo"][-1] if st.session_state[f"valores_{fase}"]["consumo"] else 0 for fase in ["A", "B", "C"])
-    dia_para_conta = st.session_state["dia_atual"].strftime('%d/%m/%Y')
-else:
-    df_A = dfs["A"][dfs["A"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
-    df_B = dfs["B"][dfs["B"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
-    df_C = dfs["C"][dfs["C"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
-    
-    consumo_dia_A = df_A[colunas["A"]["consumo"]].iloc[-1] if not df_A.empty else 0
-    consumo_dia_B = df_B[colunas["B"]["consumo"]].iloc[-1] if not df_B.empty else 0
-    consumo_dia_C = df_C[colunas["C"]["consumo"]].iloc[-1] if not df_C.empty else 0
-    
-    total_consumo_kwh_dia = consumo_dia_A + consumo_dia_B + consumo_dia_C
-    dia_para_conta = st.session_state["dia_anterior"].strftime('%d/%m/%Y')
-
-estimativa_conta = total_consumo_kwh_dia * TARIFA_KWH
-
-# Novo visor para a maior demanda
-def visor_maior_demanda(dia, valor, unidade):
-    st.markdown(f"""
-    <div style='
-        background-color: #2c3e50;
-        padding: 15px;
-        border-radius: 15px;
-        margin-bottom: 15px;
-    '>
-        <h3 style='color:white; text-align:center;'>Maior Demanda Histórica</h3>
-        <div style='
-            background-color: #34495e;
-            color: #2ecc71;
-            padding: 15px;
-            border-radius: 10px;
-            text-align: center;
-            font-size: 20px;
-            font-weight: bold;
-            width: 100%;
-        '>
-            Dia: {dia}<br>
-            Demanda: {valor:.2f} {unidade}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-# Novo visor para a estimativa da conta
-def visor_estimativa_conta(valor_total, dia_selecionado):
-    st.markdown(f"""
-    <div style='
-        background-color: #2c3e50;
-        padding: 15px;
-        border-radius: 15px;
-        margin-bottom: 15px;
-    '>
-        <h3 style='color:white; text-align:center;'>Estimativa de Conta de Energia</h3>
-        <div style='
-            background-color: #34495e;
-            color: #2ecc71;
-            padding: 15px;
-            border-radius: 10px;
-            text-align: center;
-            font-size: 20px;
-            font-weight: bold;
-            width: 100%;
-        '>
-            Estimativa para o dia {dia_selecionado}: R$ {valor_total:.2f}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-col_demanda, col_conta = st.columns(2)
-
-with col_demanda:
-    visor_maior_demanda(dia_maior_demanda, maior_demanda_historica, "W")
-
-with col_conta:
-    visor_estimativa_conta(estimativa_conta, dia_para_conta)
-
-
 # --- GRÁFICOS DINÂMICOS ---
 st.markdown("<h3>Selecione o Gráfico</h3>", unsafe_allow_html=True)
 col_left, col_right = st.columns([2, 3])
@@ -603,7 +495,6 @@ grafico_key_map = {
 }
 
 plotted = False
-data_para_grafico = st.session_state["dia_atual"].strftime('%d/%m/%Y') if dia_escolhido == "Dia Atual" else st.session_state["dia_anterior"].strftime('%d/%m/%Y')
 
 if grafico_selecionado in ["Tensão", "Corrente", "Potência Aparente"]:
     for fase in ["A", "B", "C"]:
@@ -695,15 +586,15 @@ if plotted:
     date_end = date_start + timedelta(days=1)
     
     if grafico_selecionado == "Tensão":
-        fig.update_layout(title=f"Tensão nas Fases - {data_para_grafico}", yaxis_title="Tensão (V)", yaxis=dict(range=[190, 250]))
+        fig.update_layout(title="Tensão nas Fases", yaxis_title="Tensão (V)", yaxis=dict(range=[190, 250]))
     elif grafico_selecionado == "Corrente":
-        fig.update_layout(title=f"Corrente nas Fases - {data_para_grafico}", yaxis_title="Corrente (A)", yaxis=dict(range=[0, 300]))
+        fig.update_layout(title="Corrente nas Fases", yaxis_title="Corrente (A)", yaxis=dict(range=[0, 300]))
     elif grafico_selecionado == "Potência Aparente":
-        fig.update_layout(title=f"Potência Aparente nas Fases - {data_para_grafico}", yaxis_title="Potência Aparente (VA)")
+        fig.update_layout(title="Potência Aparente nas Fases", yaxis_title="Potência Aparente (VA)")
     elif grafico_selecionado == "Potência Aparente Total":
-        fig.update_layout(title=f"Potência Aparente Total - {data_para_grafico}", yaxis_title="Potência Aparente (VA)", yaxis=dict(range=[0, 400000]))
+        fig.update_layout(title="Potência Aparente Total", yaxis_title="Potência Aparente (VA)", yaxis=dict(range=[0, 400000]))
     elif grafico_selecionado == "Fator de Potência Total":
-        fig.update_layout(title=f"Fator de Potência Total - {data_para_grafico}", yaxis_title="Fator de Potência", yaxis=dict(range=[0.6, 1.0]))
+        fig.update_layout(title="Fator de Potência Total", yaxis_title="Fator de Potência", yaxis=dict(range=[0.6, 1.0]))
 
     fig.update_layout(
         xaxis_title="Horário",
