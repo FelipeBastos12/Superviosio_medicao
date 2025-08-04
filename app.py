@@ -1,358 +1,124 @@
-import streamlit as st
 import pandas as pd
-import plotly.graph_objs as go
-from streamlit_autorefresh import st_autorefresh
-from datetime import datetime, timedelta
 import numpy as np
-import collections
+from datetime import datetime, timedelta
 
-# --- CONFIGURAÇÕES ---
-# O user subiu arquivos com '(3)' no nome. Assumimos que essa é a convenção
-PATHS = {
-    "A": "Planilha_242_LAT - FASEA (3).csv",
-    "B": "Planilha_242_LAT - FASEB (3).csv",
-    "C": "Planilha_242_LAT - FASEC (3).csv"
-}
-REFRESH_INTERVAL_MS = 500
+def generate_monthly_fake_data(fase_letter, num_days=30):
+    """
+    Gera um DataFrame com dados fictícios para um mês inteiro, seguindo uma
+    lógica de consumo total diário e com redução para fins de semana.
 
-# --- LIMITES DE OPERAÇÃO ---
-TENSÃO_MIN = 200.0  # Volts
-TENSÃO_MAX = 250.0  # Volts
-CORRENTE_MAX = 50.0 # Amperes
-POTENCIA_APARENTE_MAX = 4500.0      # VA (por fase)
-POTENCIA_APARENTE_TOTAL_MAX = 12000.0 # VA (total)
-FREQUENCIA_MIN = 58.9 # Hz (para sistema 60Hz)
-FREQUENCIA_MAX = 62.0 # Hz (para sistema 60Hz)
-FATOR_POTENCIA_MIN = 0.85 # Mínimo recomendado
-DEMANDA_MAXIMA = 10000.0 # Exemplo de limite de demanda máxima (W)
+    Args:
+        fase_letter (str): A letra da fase (e.g., 'A', 'B', 'C').
+        num_days (int): O número de dias para gerar os dados.
 
-# --- NOMES DAS COLUNAS POR FASE ---
-colunas = {
-    "A": {
-        "tensao": "Tensao_Fase_A",
-        "corrente": "Corrente_Fase_A",
-        "potencia": "Potencia_Aparente_Fase_A",
-        "frequencia": "Frequencia_Fase_A",
-        "fator_de_potencia": "fator_De_Potencia_Fase_A",
-        "consumo": "C (kWh)",
-        "potencia_ativa": "Potencia_Ativa_Fase_A",
-        "potencia_reativa": "Potencia_Reativa_Fase_A"
-    },
-    "B": {
-        "tensao": "Tensao_Fase_B",
-        "corrente": "Corrente_Fase_B",
-        "potencia": "Potencia_Aparente_Fase_B",
-        "frequencia": "Frequencia_Fase_B",
-        "fator_de_potencia": "fator_De_Potencia_Fase_B",
-        "consumo": "C (kWh)",
-        "potencia_ativa": "Potencia_Ativa_Fase_B",
-        "potencia_reativa": "Potencia_Reativa_Fase_B"
-    },
-    "C": {
-        "tensao": "Tensao_Fase_C",
-        "corrente": "Corrente_Fase_C",
-        "potencia": "Potencia_Aparente_Fase_C",
-        "frequencia": "Frequencia_Fase_C",
-        "fator_de_potencia": "fator_De_Potencia_Fase_C",
-        "consumo": "C (kWh)",
-        "potencia_ativa": "Potencia_Ativa_Fase_C",
-        "potencia_reativa": "Potencia_Reativa_Fase_C"
+    Returns:
+        pd.DataFrame: Um DataFrame contendo os dados fictícios.
+    """
+    # AQUI ESTÁ A MUDANÇA
+    start_date = datetime(2025, 8, 1)
+    
+    time_series = pd.date_range(start_date, start_date + timedelta(days=num_days) - timedelta(minutes=3), freq='3min')
+    
+    line_voltage_col_name = {
+        'A': 'Tensao_De_Linha_AB',
+        'B': 'Tensao_De_Linha_BC',
+        'C': 'Tensao_De_Linha_CA'
+    }[fase_letter]
+
+    data = {
+        'Data': [ts.strftime('%d/%m/%Y') for ts in time_series],
+        'Horário': [ts.strftime('%H:%M:%S') for ts in time_series],
+        f'Tensao_Fase_{fase_letter}': [],
+        line_voltage_col_name: [],
+        f'Corrente_Fase_{fase_letter}': [],
+        f'Potencia_Ativa_Fase_{fase_letter}': [],
+        f'fator_De_Potencia_Fase_{fase_letter}': [],
+        f'Potencia_Reativa_Fase_{fase_letter}': [],
+        f'Potencia_Aparente_Fase_{fase_letter}': [],
+        f'Frequencia_Fase_{fase_letter}': [],
+        'Intervalos em Hora': [],
+        'C (Wh)': [],
+        'C (kWh)': []
     }
-}
-
-# --- LEITURA E LIMPEZA ---
-@st.cache_data
-def load_and_clean_csv(path):
-    try:
-        df = pd.read_csv(path)
+    
+    cumulative_wh = 0.0
+    
+    for i, ts in enumerate(time_series):
+        hour = ts.hour
+        day_of_week = ts.dayofweek # 0=Segunda, 5=Sábado, 6=Domingo
         
-        if df.empty:
-            return pd.DataFrame()
-            
-        for col in df.columns:
-            if col in ["Data", "Horário"]:
-                continue
-            df[col] = df[col].astype(str).str.replace(",", ".", regex=False)
-            try:
-                df[col] = df[col].astype(float)
-            except ValueError:
-                pass
-        df['Timestamp'] = pd.to_datetime(df['Data'] + ' ' + df['Horário'], format='%d/%m/%Y %H:%M:%S')
-        df = df.sort_values(by='Timestamp').reset_index(drop=True)
-        return df
-    except FileNotFoundError:
-        st.error(f"Arquivo não encontrado: {path}")
-        return pd.DataFrame()
-
-# Carregar os dados de todas as fases
-dfs_raw = {fase: load_and_clean_csv(path) for fase, path in PATHS.items()}
-
-# --- CONFIGURAÇÃO DE PÁGINA ---
-st.set_page_config(page_title="Supervisório LAT Trifásico", layout="wide")
-
-# --- LÓGICA DE SELEÇÃO DE DATA DINÂMICA ---
-# Encontrar a data mais recente nos dados, se houver
-combined_timestamps = pd.concat([df['Timestamp'] for df in dfs_raw.values() if not df.empty])
-unique_dates = sorted(combined_timestamps.dt.floor('D').unique(), reverse=True)
-
-if not unique_dates:
-    st.error("Não há dados para exibir. Por favor, verifique os arquivos CSV.")
-    st.stop()
-
-# Define o dia atual e anterior com base nos dados disponíveis
-dia_atual_ts = unique_dates[0]
-dia_anterior_ts = unique_dates[1] if len(unique_dates) > 1 else unique_dates[0]
-
-# Cria os dataframes filtrados para o dia atual e anterior
-dfs = {}
-for fase, df_raw in dfs_raw.items():
-    if not df_raw.empty:
-        dfs[fase] = df_raw
-    else:
-        dfs[fase] = pd.DataFrame()
-
-# --- AUTOREFRESH (agora sempre ativo) ---
-st_autorefresh(interval=REFRESH_INTERVAL_MS, limit=None, key="auto_refresh")
-
-# --- INICIALIZAÇÃO DE SESSION STATE ---
-for fase in ["A", "B", "C"]:
-    if f"index_{fase}" not in st.session_state:
-        st.session_state[f"index_{fase}"] = 0
-    if f"valores_{fase}" not in st.session_state:
-        st.session_state[f"valores_{fase}"] = {
-            "tensao": [], "corrente": [], "potencia": [], "timestamp": [],
-            "potencia_ativa": [], "potencia_reativa": []
-        }
-    if f"corrente_anterior_{fase}" not in st.session_state:
-        st.session_state[f"corrente_anterior_{fase}"] = 0.0
-
-if "grafico_selecionado" not in st.session_state:
-    st.session_state["grafico_selecionado"] = "Tensão"
-
-# Inicializa o log de erros como uma deque para limitar o tamanho
-if "log_erros" not in st.session_state:
-    st.session_state["log_erros"] = collections.deque(maxlen=10)
-
-
-# --- Layout com logo e título lado a lado ---
-col_logo, col_titulo = st.columns([1, 5])
-with col_logo:
-    st.image("FDJ_engenharia.jpg", width=500)
-with col_titulo:
-    st.markdown("<h1 style='padding-top: 90px;'>Supervisório de Medição Elétrica</h1>", unsafe_allow_html=True)
-
-# --- FUNÇÃO PARA ATUALIZAR DADOS DO DIA ATUAL (sempre ativa) ---
-def atualizar_dados_dia_atual(fase, df):
-    df_dia_atual = df[df['Timestamp'].dt.date == dia_atual_ts.date()]
-    if df_dia_atual.empty:
-        return
-    
-    if st.session_state[f"index_{fase}"] >= len(df_dia_atual):
-        st.session_state[f"index_{fase}"] = 0
-        st.session_state[f"valores_{fase}"]["tensao"] = []
-        st.session_state[f"valores_{fase}"]["corrente"] = []
-        st.session_state[f"valores_{fase}"]["potencia"] = []
-        st.session_state[f"valores_{fase}"]["timestamp"] = []
-        st.session_state[f"valores_{fase}"]["potencia_ativa"] = []
-        st.session_state[f"valores_{fase}"]["potencia_reativa"] = []
+        # Lógica para os dias úteis (Segunda a Sexta)
+        if day_of_week < 5: 
+            if 0 <= hour < 8:
+                power_total_kW_base = np.random.uniform(45, 55)
+                power_factor_base = np.random.uniform(0.83, 0.87)
+            elif 8 <= hour < 13:
+                power_total_kW_base = np.random.uniform(90, 110)
+                power_factor_base = np.random.uniform(0.88, 0.92)
+            elif 13 <= hour < 18:
+                power_total_kW_base = np.random.uniform(135, 165)
+                power_factor_base = np.random.uniform(0.90, 0.94)
+            elif 18 <= hour < 21:
+                power_total_kW_base = np.random.uniform(90, 110)
+                power_factor_base = np.random.uniform(0.88, 0.92)
+            else: # 21h a 00h
+                power_total_kW_base = np.random.uniform(45, 55)
+                power_factor_base = np.random.uniform(0.83, 0.87)
         
-    idx = st.session_state[f"index_{fase}"]
-    row = df_dia_atual.iloc[idx]
-    st.session_state[f"index_{fase}"] += 1
-
-    tensao = row.get(colunas[fase]["tensao"], None)
-    corrente = row.get(colunas[fase]["corrente"], None)
-    potencia = row.get(colunas[fase]["potencia"], None)
-    potencia_ativa = row.get(colunas[fase]["potencia_ativa"], None)
-    potencia_reativa = row.get(colunas[fase]["potencia_reativa"], None)
-    timestamp = row.get("Timestamp", None)
-
-    if corrente == 0:
-        corrente = st.session_state.get(f"corrente_anterior_{fase}", corrente)
-    else:
-        st.session_state[f"corrente_anterior_{fase}"] = corrente
-
-    if tensao is not None:
-        st.session_state[f"valores_{fase}"]["tensao"].append(float(tensao))
-    if corrente is not None:
-        st.session_state[f"valores_{fase}"]["corrente"].append(float(corrente))
-    if potencia is not None:
-        st.session_state[f"valores_{fase}"]["potencia"].append(float(potencia))
-    if potencia_ativa is not None:
-        st.session_state[f"valores_{fase}"]["potencia_ativa"].append(float(potencia_ativa))
-    if potencia_reativa is not None:
-        st.session_state[f"valores_{fase}"]["potencia_reativa"].append(float(potencia_reativa))
-    if timestamp is not None:
-        st.session_state[f"valores_{fase}"]["timestamp"].append(timestamp)
-
-# --- ATUALIZANDO DADOS DO DIA ATUAL EM TODAS AS FASES ---
-for fase in ["A", "B", "C"]:
-    atualizar_dados_dia_atual(fase, dfs[fase])
-
-# --- SELETOR DE DIA ---
-dia_escolhido_str = st.radio("Selecionar dia para visualização:", (dia_atual_ts.strftime('%d/%m/%Y') + " (Dia Atual)", dia_anterior_ts.strftime('%d/%m/%Y') + " (Dia Anterior)"))
-if dia_escolhido_str.endswith(" (Dia Atual)"):
-    dia_escolhido = dia_atual_ts.date()
-else:
-    dia_escolhido = dia_anterior_ts.date()
-
-# --- PEGANDO VALORES PARA EXIBIÇÃO ---
-valores_tensao = {}
-valores_corrente = {}
-valores_potencia = {}
-valores_frequencia = {}
-valores_fator_potencia = {}
-valores_consumo = {}
-valores_potencia_ativa = {}
-valores_potencia_reativa = {}
-
-for fase in ["A", "B", "C"]:
-    df = dfs[fase]
-    df_filtrado = df[df['Timestamp'].dt.date == dia_escolhido]
-    
-    if df_filtrado.empty:
-        tensao, corrente, potencia, frequencia, fator_potencia, consumo = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-        potencia_ativa, potencia_reativa = 0.0, 0.0
-    else:
-        if dia_escolhido == dia_atual_ts.date():
-            dados_sessao = st.session_state[f"valores_{fase}"]
-            if dados_sessao["timestamp"]:
-                last_idx = len(dados_sessao["timestamp"]) - 1
-                tensao = dados_sessao["tensao"][last_idx]
-                corrente = dados_sessao["corrente"][last_idx]
-                potencia = dados_sessao["potencia"][last_idx]
-                potencia_ativa = dados_sessao["potencia_ativa"][last_idx]
-                potencia_reativa = dados_sessao["potencia_reativa"][last_idx]
-                row = df_filtrado.iloc[len(dados_sessao["timestamp"]) - 1]
-                frequencia = row.get(colunas[fase]["frequencia"], 0)
-                fator_potencia = row.get(colunas[fase]["fator_de_potencia"], 0)
-                consumo = row.get(colunas[fase]["consumo"], 0)
-            else:
-                tensao, corrente, potencia, frequencia, fator_potencia, consumo = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-                potencia_ativa, potencia_reativa = 0.0, 0.0
-        else:  # Dia Anterior
-            row = df_filtrado.iloc[-1]
-            tensao = row[colunas[fase]["tensao"]]
-            corrente = row[colunas[fase]["corrente"]]
-            potencia = row[colunas[fase]["potencia"]]
-            frequencia = row[colunas[fase]["frequencia"]]
-            fator_potencia = row[colunas[fase]["fator_de_potencia"]]
-            consumo = row[colunas[fase]["consumo"]]
-            potencia_ativa = row[colunas[fase]["potencia_ativa"]]
-            potencia_reativa = row[colunas[fase]["potencia_reativa"]]
-
-    valores_tensao[fase] = float(tensao)
-    valores_corrente[fase] = float(corrente)
-    valores_potencia[fase] = float(potencia)
-    valores_frequencia[fase] = float(frequencia)
-    valores_fator_potencia[fase] = float(fator_potencia)
-    valores_consumo[fase] = float(consumo)
-    valores_potencia_ativa[fase] = float(potencia_ativa)
-    valores_potencia_reativa[fase] = float(potencia_reativa)
-
-# Obtém o timestamp do último dado para usar no log
-timestamp_ultimo_dado = st.session_state["valores_A"]["timestamp"][-1] if st.session_state["valores_A"]["timestamp"] and dia_escolhido == dia_atual_ts.date() else datetime.now()
-
-
-# --- VISOR PERSONALIZADO ---
-def visor_fases(label, valores_por_fase, unidade, timestamp_erro):
-    cor_fundo_default = "#2c3e50"
-    cor_fundo_alerta = "#c0392b"
-    cor_fundo_atual = cor_fundo_default
-    
-    # Define as cores do texto e verifica alarmes
-    cores_texto = {}
-    for fase in ["A", "B", "C"]:
-        valor = valores_por_fase[fase]
-        if label == "Tensão":
-            if TENSÃO_MIN <= valor <= TENSÃO_MAX:
-                cores_texto[fase] = "#2ecc71" # Verde
-            else:
-                cores_texto[fase] = "#c0392b" # Vermelho
-                cor_fundo_atual = cor_fundo_alerta # Aciona o alarme de fundo
-                st.session_state["log_erros"].append(f"[{timestamp_erro.strftime('%H:%M:%S')}] ALARME de Tensão na Fase {fase}: {valor:.2f} {unidade}")
-        elif label == "Corrente":
-            cores_texto[fase] =  "#2ecc71" # Verde
-            if valor > CORRENTE_MAX:
-                cores_texto[fase] = "#c0392b" # Vermelho
-                cor_fundo_atual = cor_fundo_alerta
-                st.session_state["log_erros"].append(f"[{timestamp_erro.strftime('%H:%M:%S')}] ALARME de Corrente na Fase {fase}: {valor:.2f} {unidade}")
-        elif label == "Potência Aparente":
-            cores_texto[fase] =  "#2ecc71" # Verde
-            if valor > POTENCIA_APARENTE_MAX:
-                cores_texto[fase] = "#c0392b" # Vermelho
-                cor_fundo_atual = cor_fundo_alerta
-                st.session_state["log_erros"].append(f"[{timestamp_erro.strftime('%H:%M:%S')}] ALARME de Potência na Fase {fase}: {valor:.2f} {unidade}")
-        elif label == "Frequência":
-            cores_texto[fase] =  "#2ecc71" # Verde
-            if not (FREQUENCIA_MIN <= valor <= FREQUENCIA_MAX):
-                cores_texto[fase] = "#c0392b" # Vermelho
-                cor_fundo_atual = cor_fundo_alerta
-                st.session_state["log_erros"].append(f"[{timestamp_erro.strftime('%H:%M:%S')}] ALARME de Frequência na Fase {fase}: {valor:.2f} {unidade}")
-        elif label == "Fator de Potência":
-            cores_texto[fase] =  "#2ecc71" # Verde
-            if valor < FATOR_POTENCIA_MIN:
-                cores_texto[fase] = "#c0392b" # Vermelho
-                cor_fundo_atual = cor_fundo_alerta
-                st.session_state["log_erros"].append(f"[{timestamp_erro.strftime('%H:%M:%S')}] ALARME de Fator de Potência na Fase {fase}: {valor:.2f}")
+        # Lógica para os fins de semana (Sábado e Domingo)
         else:
-            cores_texto[fase] =  "#2ecc71" # Verde
-    
-    st.markdown(f"""
-    <div style='
-        background-color: {cor_fundo_atual};
-        padding: 15px;
-        border-radius: 15px;
-        margin-bottom: 15px;
-    '>
-        <h3 style='color:white; text-align:center;'>{label}</h3>
-        <div style='display: flex; flex-direction: column; gap: 10px;'>
-            <div style='
-                background-color: #34495e;
-                color: {cores_texto["A"]};
-                padding: 15px;
-                border-radius: 10px;
-                text-align: center;
-                font-size: 20px;
-                font-weight: bold;
-                width: 100%;
-            '>
-                Fase A: {valores_por_fase["A"]:.2f} {unidade}
-            </div>
-            <div style='
-                background-color: #34495e;
-                color: {cores_texto["B"]};
-                padding: 15px;
-                border-radius: 10px;
-                text-align: center;
-                font-size: 20px;
-                font-weight: bold;
-                width: 100%;
-            '>
-                Fase B: {valores_por_fase["B"]:.2f} {unidade}
-            </div>
-            <div style='
-                background-color: #34495e;
-                color: {cores_texto["C"]};
-                padding: 15px;
-                border-radius: 10px;
-                text-align: center;
-                font-size: 20px;
-                font-weight: bold;
-                width: 100%;
-            '>
-                Fase C: {valores_por_fase["C"]:.2f} {unidade}
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+            weekend_reduction_factor = np.random.uniform(0.4, 0.6) # Fator de redução aleatório
+            if 0 <= hour < 8:
+                power_total_kW_base = np.random.uniform(45, 55) * weekend_reduction_factor
+                power_factor_base = np.random.uniform(0.83, 0.87)
+            elif 8 <= hour < 18:
+                power_total_kW_base = np.random.uniform(90, 110) * weekend_reduction_factor
+                power_factor_base = np.random.uniform(0.88, 0.92)
+            else: # 18h a 00h
+                power_total_kW_base = np.random.uniform(45, 55) * weekend_reduction_factor
+                power_factor_base = np.random.uniform(0.83, 0.87)
 
-# --- VISOR PERSONALIZADO PARA VALORES TOTAIS ---
-def visor_total(label, valor_total, unidade, timestamp_erro, limite_superior=None, limite_inferior=None):
-    cor_fundo_default = "#2c3e50"
-    cor_fundo_alerta = "#c0392b"
-    cor_fundo_atual = cor_fundo_default
+        # AQUI ESTÁ A MUDANÇA: A potência por fase é calculada com base na potência total
+        # A potência ativa total é dividida por 3 (para um sistema balanceado)
+        active_power_per_phase = (power_total_kW_base * 1000) / 3
+        
+        voltage_phase = np.random.normal(222.5, 1.0)
+        power_factor = min(1.0, max(0.8, power_factor_base * np.random.uniform(0.98, 1.02)))
+        frequency = np.random.normal(60.0, 0.1)
+
+        active_power = active_power_per_phase * np.random.uniform(0.95, 1.05)
+        apparent_power = active_power / power_factor
+        reactive_power = apparent_power * np.sin(np.arccos(power_factor))
+        current = apparent_power / voltage_phase
+        
+        data[f'Tensao_Fase_{fase_letter}'].append(voltage_phase)
+        data[line_voltage_col_name].append(voltage_phase * np.sqrt(3))
+        data[f'Corrente_Fase_{fase_letter}'].append(current)
+        data[f'Potencia_Ativa_Fase_{fase_letter}'].append(active_power)
+        data[f'fator_De_Potencia_Fase_{fase_letter}'].append(power_factor)
+        data[f'Potencia_Reativa_Fase_{fase_letter}'].append(reactive_power)
+        data[f'Potencia_Aparente_Fase_{fase_letter}'].append(apparent_power)
+        data[f'Frequencia_Fase_{fase_letter}'].append(frequency)
+
+        interval_in_hours = 3 / 60.0
+        data['Intervalos em Hora'].append(interval_in_hours)
+
+        energy_wh = active_power * interval_in_hours
+        cumulative_wh += energy_wh
+        data['C (Wh)'].append(cumulative_wh)
+        data['C (kWh)'].append(cumulative_wh / 1000.0)
+
+    return pd.DataFrame(data)
+
+# Gerar e salvar dados para cada fase para um mês (30 dias)
+num_days_to_generate = 30
+for fase in ['A', 'B', 'C']:
+    df = generate_monthly_fake_data(fase, num_days_to_generate)
     
-    alarme_acionado = False
-    
-    cor_texto_
+    for col in df.columns:
+        if df[col].dtype == np.float64:
+            df[col] = df[col].apply(lambda x: f"{x:.2f}".replace('.', ','))
+            
+    file_name = f'Planilha_242_LAT - FASE{fase}.csv'
+    df.to_csv(file_name, index=False, encoding='utf-8')
+    print(f'Arquivo {file_name} para {num_days_to_generate} dias gerado com sucesso.')
