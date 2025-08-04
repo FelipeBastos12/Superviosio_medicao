@@ -6,9 +6,9 @@ from datetime import datetime, timedelta
 
 # --- CONFIGURAÇÕES ---
 PATHS = {
-    "A": "Planilha_242_LAT - FASEA.csv",
-    "B": "Planilha_242_LAT - FASEB.csv",
-    "C": "Planilha_242_LAT - FASEC.csv"
+    "A": "Medicoes_FASEA.csv",
+    "B": "Medicoes_FASEB.csv",
+    "C": "Medicoes_FASEC.csv"
 }
 REFRESH_INTERVAL_MS = 500
 
@@ -329,3 +329,4 @@ fig.update_layout(
     template="simple_white"
 )
 st.plotly_chart(fig, use_container_width=True)
+
