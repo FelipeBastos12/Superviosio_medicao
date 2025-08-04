@@ -19,21 +19,24 @@ colunas = {
         "corrente": "Corrente_Fase_A",
         "potencia": "Potencia_Aparente_Fase_A",
         "frequencia": "Frequencia_Fase_A",
-        "fator_de_potencia": "fator_De_Potencia_Fase_A"  # Adicionado
+        "fator_de_potencia": "fator_De_Potencia_Fase_A",
+        "consumo": "C (kWh)"  # Adicionado
     },
     "B": {
         "tensao": "Tensao_Fase_B",
         "corrente": "Corrente_Fase_B",
         "potencia": "Potencia_Aparente_Fase_B",
         "frequencia": "Frequencia_Fase_B",
-        "fator_de_potencia": "fator_De_Potencia_Fase_B"  # Adicionado
+        "fator_de_potencia": "fator_De_Potencia_Fase_B",
+        "consumo": "C (kWh)"  # Adicionado
     },
     "C": {
         "tensao": "Tensao_Fase_C",
         "corrente": "Corrente_Fase_C",
         "potencia": "Potencia_Aparente_Fase_C",
         "frequencia": "Frequencia_Fase_C",
-        "fator_de_potencia": "fator_De_Potencia_Fase_C"  # Adicionado
+        "fator_de_potencia": "fator_De_Potencia_Fase_C",
+        "consumo": "C (kWh)"  # Adicionado
     }
 }
 
@@ -135,13 +138,14 @@ valores_tensao = {}
 valores_corrente = {}
 valores_potencia = {}
 valores_frequencia = {}
-valores_fator_potencia = {}  # Adicionado
+valores_fator_potencia = {}
+valores_consumo = {}  # Adicionado
 
 for fase in ["A", "B", "C"]:
     df = dfs[fase]
     
     if df.empty:
-        tensao, corrente, potencia, frequencia, fator_potencia = 0.0, 0.0, 0.0, 0.0, 0.0
+        tensao, corrente, potencia, frequencia, fator_potencia, consumo = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
     else:
         if dia_escolhido == "Dia Atual":
             dados_sessao = st.session_state[f"valores_{fase}"]
@@ -152,20 +156,23 @@ for fase in ["A", "B", "C"]:
                 potencia = dados_sessao["potencia"][last_idx]
                 frequencia = df.iloc[st.session_state[f"index_{fase}"] - 1].get(colunas[fase]["frequencia"], 0)
                 fator_potencia = df.iloc[st.session_state[f"index_{fase}"] - 1].get(colunas[fase]["fator_de_potencia"], 0)
+                consumo = df.iloc[st.session_state[f"index_{fase}"] - 1].get(colunas[fase]["consumo"], 0)
             else:
-                tensao, corrente, potencia, frequencia, fator_potencia = 0.0, 0.0, 0.0, 0.0, 0.0
+                tensao, corrente, potencia, frequencia, fator_potencia, consumo = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
         else:  # Dia Anterior
             tensao = float(df[colunas[fase]["tensao"]].iloc[-1])
             corrente = float(df[colunas[fase]["corrente"]].iloc[-1])
             potencia = float(df[colunas[fase]["potencia"]].iloc[-1])
             frequencia = float(df[colunas[fase]["frequencia"]].iloc[-1])
             fator_potencia = float(df[colunas[fase]["fator_de_potencia"]].iloc[-1])
+            consumo = float(df[colunas[fase]["consumo"]].iloc[-1])
 
     valores_tensao[fase] = float(tensao)
     valores_corrente[fase] = float(corrente)
     valores_potencia[fase] = float(potencia)
     valores_frequencia[fase] = float(frequencia)
     valores_fator_potencia[fase] = float(fator_potencia)
+    valores_consumo[fase] = float(consumo)
 
 # --- VISOR PERSONALIZADO ---
 def visor_fases(label, valores_por_fase, unidade, cor_fundo="#2c3e50"):
@@ -223,7 +230,7 @@ def visor_fases(label, valores_por_fase, unidade, cor_fundo="#2c3e50"):
     </div>
     """, unsafe_allow_html=True)
 
-# --- EXIBIÇÃO AGRUPADA EM GRADE (3 colunas, depois 2 colunas) ---
+# --- EXIBIÇÃO AGRUPADA EM GRADE (3 colunas, depois 3 colunas) ---
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -233,12 +240,14 @@ with col2:
 with col3:
     visor_fases("Frequência", valores_frequencia, "Hz")
 
-col4, col5 = st.columns(2)
+col4, col5, col6 = st.columns(3)  # Alterado para 3 colunas
 
 with col4:
     visor_fases("Potência Aparente", valores_potencia, "VA")
 with col5:
     visor_fases("Fator de Potência", valores_fator_potencia, "")
+with col6:  # Adicionado o novo visor
+    visor_fases("Consumo", valores_consumo, "kWh")
 
 # --- GRÁFICOS DINÂMICOS ---
 grafico_selecionado = st.radio("", ("Tensão", "Corrente", "Potência Aparente"))
