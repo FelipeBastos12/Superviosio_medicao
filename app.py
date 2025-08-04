@@ -13,6 +13,13 @@ PATHS = {
 }
 REFRESH_INTERVAL_MS = 500
 
+# --- LIMITES DE OPERAÇÃO ---
+TENSÃO_MIN = 200.0  # Volts
+TENSÃO_MAX = 240.0  # Volts
+CORRENTE_MAX = 20.0  # Amperes
+POTENCIA_APARENTE_MAX = 4500.0  # VA (por fase)
+POTENCIA_APARENTE_TOTAL_MAX = 12000.0 # VA (total)
+
 # --- NOMES DAS COLUNAS POR FASE ---
 colunas = {
     "A": {
@@ -206,15 +213,30 @@ for fase in ["A", "B", "C"]:
     valores_potencia_reativa[fase] = float(potencia_reativa)
 
 # --- VISOR PERSONALIZADO ---
-def visor_fases(label, valores_por_fase, unidade, cor_fundo="#2c3e50"):
-    cores_texto = {
-        "A": "#2ecc71" if (label == "Tensão" and valores_por_fase["A"] >= 210) or label != "Tensão" else "#c0392b",
-        "B": "#2ecc71" if (label == "Tensão" and valores_por_fase["B"] >= 210) or label != "Tensão" else "#c0392b",
-        "C": "#2ecc71" if (label == "Tensão" and valores_por_fase["C"] >= 210) or label != "Tensão" else "#c0392b",
-    }
+def visor_fases(label, valores_por_fase, unidade):
+    cor_fundo_default = "#2c3e50"
+    cor_fundo_alerta = "#c0392b"
+    cor_fundo_atual = cor_fundo_default
+    
+    # Verifica os limites para o visor inteiro
+    if label == "Tensão" and (valores_por_fase["A"] < TENSÃO_MIN or valores_por_fase["A"] > TENSÃO_MAX or
+                              valores_por_fase["B"] < TENSÃO_MIN or valores_por_fase["B"] > TENSÃO_MAX or
+                              valores_por_fase["C"] < TENSÃO_MIN or valores_por_fase["C"] > TENSÃO_MAX):
+        cor_fundo_atual = cor_fundo_alerta
+    
+    if label == "Corrente" and (valores_por_fase["A"] > CORRENTE_MAX or
+                                valores_por_fase["B"] > CORRENTE_MAX or
+                                valores_por_fase["C"] > CORRENTE_MAX):
+        cor_fundo_atual = cor_fundo_alerta
+
+    if label == "Potência Aparente" and (valores_por_fase["A"] > POTENCIA_APARENTE_MAX or
+                                        valores_por_fase["B"] > POTENCIA_APARENTE_MAX or
+                                        valores_por_fase["C"] > POTENCIA_APARENTE_MAX):
+        cor_fundo_atual = cor_fundo_alerta
+
     st.markdown(f"""
     <div style='
-        background-color: {cor_fundo};
+        background-color: {cor_fundo_atual};
         padding: 15px;
         border-radius: 15px;
         margin-bottom: 15px;
@@ -223,7 +245,7 @@ def visor_fases(label, valores_por_fase, unidade, cor_fundo="#2c3e50"):
         <div style='display: flex; flex-direction: column; gap: 10px;'>
             <div style='
                 background-color: #34495e;
-                color: {cores_texto["A"]};
+                color: #ffffff;
                 padding: 15px;
                 border-radius: 10px;
                 text-align: center;
@@ -235,7 +257,7 @@ def visor_fases(label, valores_por_fase, unidade, cor_fundo="#2c3e50"):
             </div>
             <div style='
                 background-color: #34495e;
-                color: {cores_texto["B"]};
+                color: #ffffff;
                 padding: 15px;
                 border-radius: 10px;
                 text-align: center;
@@ -247,7 +269,7 @@ def visor_fases(label, valores_por_fase, unidade, cor_fundo="#2c3e50"):
             </div>
             <div style='
                 background-color: #34495e;
-                color: {cores_texto["C"]};
+                color: #ffffff;
                 padding: 15px;
                 border-radius: 10px;
                 text-align: center;
@@ -262,10 +284,17 @@ def visor_fases(label, valores_por_fase, unidade, cor_fundo="#2c3e50"):
     """, unsafe_allow_html=True)
 
 # --- VISOR PERSONALIZADO PARA VALORES TOTAIS ---
-def visor_total(label, valor_total, unidade, cor_fundo="#2c3e50"):
+def visor_total(label, valor_total, unidade, limite_superior=None):
+    cor_fundo_default = "#2c3e50"
+    cor_fundo_alerta = "#c0392b"
+    cor_fundo_atual = cor_fundo_default
+    
+    if limite_superior and valor_total > limite_superior:
+        cor_fundo_atual = cor_fundo_alerta
+
     st.markdown(f"""
     <div style='
-        background-color: {cor_fundo};
+        background-color: {cor_fundo_atual};
         padding: 15px;
         border-radius: 15px;
         margin-bottom: 15px;
@@ -342,7 +371,7 @@ st.markdown("<h3>Grandezas Totais e Demanda</h3>", unsafe_allow_html=True)
 col7, col8, col9 = st.columns(3)
 
 with col7:
-    visor_total("Potência Aparente Total", S_total_inst, "VA")
+    visor_total("Potência Aparente Total", S_total_inst, "VA", limite_superior=POTENCIA_APARENTE_TOTAL_MAX)
 with col8:
     visor_total("Fator de Potência Total", FP_total_inst, "")
 with col9:
@@ -454,7 +483,7 @@ if plotted:
     date_23_05 = datetime(2025, 5, 23)
     
     if grafico_selecionado == "Tensão":
-        fig.update_layout(title="Tensão nas Fases", yaxis_title="Tensão (V)", yaxis=dict(range=[200, 250]))
+        fig.update_layout(title="Tensão nas Fases", yaxis_title="Tensão (V)", yaxis=dict(range=[190, 250]))
     elif grafico_selecionado == "Corrente":
         fig.update_layout(title="Corrente nas Fases", yaxis_title="Corrente (A)")
     elif grafico_selecionado == "Potência Aparente":
