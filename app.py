@@ -76,7 +76,7 @@ for fase in ["A", "B", "C"]:
         }
     if f"corrente_anterior_{fase}" not in st.session_state:
         st.session_state[f"corrente_anterior_{fase}"] = 0.0
-        
+
 # --- Layout com logo e título lado a lado ---
 col_logo, col_titulo = st.columns([1, 5])
 with col_logo:
@@ -84,33 +84,16 @@ with col_logo:
 with col_titulo:
     st.markdown("<h1 style='padding-top: 90px;'>Supervisório de Medição Elétrica</h1>", unsafe_allow_html=True)
 
-# --- SELETOR DE DIA ---
-dia_escolhido = st.radio("Selecionar dia para visualização:", ("Dia Atual", "Dia Anterior"))
-
-# --- LÓGICA PARA LIMPAR DADOS AO MUDAR DE DIA ---
-if "last_dia_escolhido" not in st.session_state:
-    st.session_state.last_dia_escolhido = dia_escolhido
-
-if st.session_state.last_dia_escolhido != dia_escolhido:
-    for fase in ["A", "B", "C"]:
-        st.session_state[f"index_{fase}"] = 0
-        st.session_state[f"valores_{fase}"]["tensao"] = []
-        st.session_state[f"valores_{fase}"]["corrente"] = []
-        st.session_state[f"valores_{fase}"]["potencia"] = []
-        st.session_state[f"valores_{fase}"]["timestamp"] = []
-    st.session_state.last_dia_escolhido = dia_escolhido
-
-# --- FUNÇÃO PARA ATUALIZAR DADOS DO DIA ATUAL ---
+# --- FUNÇÃO PARA ATUALIZAR DADOS DO DIA ATUAL (sempre ativa) ---
 def atualizar_dados_dia_atual(fase, df):
     if df.empty:
         return
-        
-    idx = st.session_state[f"index_{fase}"]
-    if idx >= len(df):
-        st.session_state[f"index_{fase}"] = 0
-        idx = 0
-        st.success(f"Reiniciando dados da fase {fase}")
     
+    # Se o index chegar no final, reinicia o loop para não dar erro
+    if st.session_state[f"index_{fase}"] >= len(df):
+        st.session_state[f"index_{fase}"] = 0
+    
+    idx = st.session_state[f"index_{fase}"]
     row = df.iloc[idx]
     st.session_state[f"index_{fase}"] += 1
 
@@ -137,6 +120,9 @@ def atualizar_dados_dia_atual(fase, df):
 for fase in ["A", "B", "C"]:
     atualizar_dados_dia_atual(fase, dfs[fase])
 
+# --- SELETOR DE DIA ---
+dia_escolhido = st.radio("Selecionar dia para visualização:", ("Dia Atual", "Dia Anterior"))
+
 # --- PEGANDO VALORES PARA EXIBIÇÃO ---
 valores_tensao = {}
 valores_corrente = {}
@@ -147,38 +133,23 @@ for fase in ["A", "B", "C"]:
     df = dfs[fase]
     
     if df.empty:
-        valores_tensao[fase] = 0.0
-        valores_corrente[fase] = 0.0
-        valores_potencia[fase] = 0.0
-        valores_frequencia[fase] = 0.0
-        continue
-    
-    if dia_escolhido == "Dia Atual":
-        dados_sessao = st.session_state[f"valores_{fase}"]
-        if dados_sessao["timestamp"]:
-            last_idx = len(dados_sessao["timestamp"]) - 1
-            tensao = dados_sessao["tensao"][last_idx]
-            corrente = dados_sessao["corrente"][last_idx]
-            potencia = dados_sessao["potencia"][last_idx]
-            
-            row_idx_original = st.session_state[f"index_{fase}"] - 1
-            if row_idx_original < 0:
-                row_idx_original = 0
-            frequencia = df.iloc[row_idx_original].get(colunas[fase]["frequencia"], 0)
-        else:
-            row = df.iloc[0]
-            tensao = row.get(colunas[fase]["tensao"], 0)
-            corrente = row.get(colunas[fase]["corrente"], 0)
-            potencia = row.get(colunas[fase]["potencia"], 0)
-            frequencia = row.get(colunas[fase]["frequencia"], 0)
-    else:  # Dia Anterior
-        if not df.empty:
+        tensao, corrente, potencia, frequencia = 0.0, 0.0, 0.0, 0.0
+    else:
+        if dia_escolhido == "Dia Atual":
+            dados_sessao = st.session_state[f"valores_{fase}"]
+            if dados_sessao["timestamp"]:
+                last_idx = len(dados_sessao["timestamp"]) - 1
+                tensao = dados_sessao["tensao"][last_idx]
+                corrente = dados_sessao["corrente"][last_idx]
+                potencia = dados_sessao["potencia"][last_idx]
+                frequencia = df.iloc[st.session_state[f"index_{fase}"] - 1].get(colunas[fase]["frequencia"], 0)
+            else:
+                tensao, corrente, potencia, frequencia = 0.0, 0.0, 0.0, 0.0
+        else:  # Dia Anterior
             tensao = float(df[colunas[fase]["tensao"]].iloc[-1])
             corrente = float(df[colunas[fase]["corrente"]].iloc[-1])
             potencia = float(df[colunas[fase]["potencia"]].iloc[-1])
             frequencia = float(df[colunas[fase]["frequencia"]].iloc[-1])
-        else:
-            tensao, corrente, potencia, frequencia = 0.0, 0.0, 0.0, 0.0
 
     valores_tensao[fase] = float(tensao)
     valores_corrente[fase] = float(corrente)
@@ -276,6 +247,8 @@ for fase in ["A", "B", "C"]:
             y_data = dados[y_key]
             modo = "lines+markers"
             plotted = True
+        else:
+            continue
     else: # Dia Anterior
         df = dfs[fase]
         if not df.empty:
@@ -285,6 +258,8 @@ for fase in ["A", "B", "C"]:
                 y_data = df[colunas[fase][y_key]]
                 modo = "lines"
                 plotted = True
+            else:
+                continue
         else:
             continue
 
