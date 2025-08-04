@@ -133,7 +133,7 @@ if "grafico_selecionado" not in st.session_state:
 if "log_erros" not in st.session_state:
     st.session_state["log_erros"] = collections.deque(maxlen=10)
 
-# --- NOVO: Variáveis para a demanda máxima histórica ---
+# --- Variáveis para a demanda máxima histórica ---
 if "max_demanda_historica" not in st.session_state:
     st.session_state["max_demanda_historica"] = 0.0
 if "dia_max_demanda_historica" not in st.session_state:
@@ -505,8 +505,7 @@ with col9:
 st.markdown("---")
 st.markdown("<h3>Análise de Custo em Tempo Real</h3>", unsafe_allow_html=True)
 
-# --- FUNÇÃO PARA CALCULAR A MAIOR DEMANDA DA HISTÓRIA ---
-@st.cache_data
+# --- FUNÇÃO PARA CALCULAR A MAIOR DEMANDA DA HISTÓRIA (agora sem cache) ---
 def calcular_maior_demanda_historica(dfs, colunas, demand_window):
     max_demanda_historica = 0.0
     dia_max_demanda_historica = "N/A"
@@ -541,8 +540,9 @@ def calcular_maior_demanda_historica(dfs, colunas, demand_window):
     return max_demanda_historica, dia_max_demanda_historica
 
 # --- CHAMADA E ATUALIZAÇÃO DA DEMANDA MÁXIMA HISTÓRICA ---
-st.session_state["max_demanda_historica"], st.session_state["dia_max_demanda_historica"] = calcular_maior_demanda_historica(dfs, colunas, demand_window)
-
+max_demanda_hist, dia_max_demanda_hist = calcular_maior_demanda_historica(dfs, colunas, demand_window)
+st.session_state["max_demanda_historica"] = max_demanda_hist
+st.session_state["dia_max_demanda_historica"] = dia_max_demanda_hist
 
 col_conta = st.columns(1)[0]
 with col_conta:
