@@ -232,15 +232,15 @@ def visor_fases(label, valores_por_fase, unidade):
                 cores_texto[fase] = "#c0392b" # Vermelho
                 cor_fundo_atual = cor_fundo_alerta # Aciona o alarme de fundo
         elif label == "Corrente":
-            cores_texto[fase] = "#ffffff" # Branco
+            cores_texto[fase] =  "#2ecc71" # Verde
             if valores_por_fase[fase] > CORRENTE_MAX:
                 cor_fundo_atual = cor_fundo_alerta
         elif label == "Potência Aparente":
-            cores_texto[fase] = "#ffffff" # Branco
+            cores_texto[fase] =  "#2ecc71" # Verde
             if valores_por_fase[fase] > POTENCIA_APARENTE_MAX:
                 cor_fundo_atual = cor_fundo_alerta
         elif label == "Frequência":
-            cores_texto[fase] = "#ffffff" # Branco
+            cores_texto[fase] =  "#2ecc71" # Verde
             if not (FREQUENCIA_MIN <= valores_por_fase[fase] <= FREQUENCIA_MAX):
                 cor_fundo_atual = cor_fundo_alerta
         elif label == "Fator de Potência":
@@ -532,3 +532,4 @@ if plotted:
     st.plotly_chart(fig, use_container_width=True)
 else:
     st.warning(f"Não há dados para exibir no gráfico de {grafico_selecionado}.")
+
