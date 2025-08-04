@@ -17,13 +17,13 @@ REFRESH_INTERVAL_MS = 500
 # --- LIMITES DE OPERAÇÃO ---
 TENSÃO_MIN = 200.0     # Volts
 TENSÃO_MAX = 250.0     # Volts
-CORRENTE_MAX = 50.0    # Amperes
-POTENCIA_APARENTE_MAX = 4500.0       # VA (por fase)
-POTENCIA_APARENTE_TOTAL_MAX = 12000.0 # VA (total)
+CORRENTE_MAX = 300.0    # Amperes
+POTENCIA_APARENTE_MAX = 100000.0       # VA (por fase)
+POTENCIA_APARENTE_TOTAL_MAX = 170000.0 # VA (total)
 FREQUENCIA_MIN = 58.9 # Hz (para sistema 60Hz)
 FREQUENCIA_MAX = 62.0 # Hz (para sistema 60Hz)
 FATOR_POTENCIA_MIN = 0.85 # Mínimo recomendado
-DEMANDA_MAXIMA = 10000.0 # Exemplo de limite de demanda máxima (W)
+DEMANDA_MAXIMA = 160000.0 # Exemplo de limite de demanda máxima (W)
 
 # --- TARIFAS BRASILEIRAS (EXEMPLO) ---
 TARIFAS = {
@@ -762,3 +762,4 @@ with st.expander("Log de alarmes"):
             st.error(erro)
     else:
         st.info("Nenhum alarme registrado.")
+
