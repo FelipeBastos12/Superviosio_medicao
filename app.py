@@ -17,19 +17,19 @@ colunas = {
     "A": {
         "tensao": "Tensao_Fase_A",
         "corrente": "Corrente_Fase_A",
-        "potencia": "Potencia_Ativa_Fase_A",
+        "potencia": "Potencia_Aparente_Fase_A",  # Alterado para Potência Aparente
         "frequencia": "Frequencia_Fase_A"
     },
     "B": {
         "tensao": "Tensao_Fase_B",
         "corrente": "Corrente_Fase_B",
-        "potencia": "Potencia_Ativa_Fase_B",
+        "potencia": "Potencia_Aparente_Fase_B",  # Alterado para Potência Aparente
         "frequencia": "Frequencia_Fase_B"
     },
     "C": {
         "tensao": "Tensao_Fase_C",
         "corrente": "Corrente_Fase_C",
-        "potencia": "Potencia_Ativa_Fase_C",
+        "potencia": "Potencia_Aparente_Fase_C",  # Alterado para Potência Aparente
         "frequencia": "Frequencia_Fase_C"
     }
 }
@@ -226,12 +226,14 @@ with row1_col1:
 with row1_col2:
     visor_fases("Corrente", valores_corrente, "A")
 with row2_col1:
-    visor_fases("Potência Ativa", valores_potencia, "W")
+    # Alterado o label
+    visor_fases("Potência Aparente", valores_potencia, "VA")
 with row2_col2:
     visor_fases("Frequência", valores_frequencia, "Hz")
 
 # --- GRÁFICOS DINÂMICOS ---
-grafico_selecionado = st.radio("", ("Tensão", "Corrente", "Potência Ativa"))
+# Alterado o rótulo do rádio button
+grafico_selecionado = st.radio("", ("Tensão", "Corrente", "Potência Aparente"))
 
 fig = go.Figure()
 cores = {"A": "#2980b9", "B": "#e67e22", "C": "#27ae60"}
@@ -239,7 +241,7 @@ cores = {"A": "#2980b9", "B": "#e67e22", "C": "#27ae60"}
 grafico_key_map = {
     "Tensão": "tensao",
     "Corrente": "corrente",
-    "Potência Ativa": "potencia"
+    "Potência Aparente": "potencia"  # Mapeamento para a nova chave
 }
 
 plotted = False
@@ -250,7 +252,6 @@ for fase in ["A", "B", "C"]:
         y_key = grafico_key_map.get(grafico_selecionado)
         if y_key and dados.get(y_key):
             y_data = dados[y_key]
-            # Alterado para mostrar apenas linhas, sem marcadores
             modo = "lines"
             plotted = True
         else:
@@ -287,8 +288,8 @@ if plotted:
         )
     elif grafico_selecionado == "Corrente":
         fig.update_layout(title="Corrente nas Fases", yaxis_title="Corrente (A)")
-    elif grafico_selecionado == "Potência Ativa":
-        fig.update_layout(title="Potência Ativa nas Fases", yaxis_title="Potência Ativa (W)")
+    elif grafico_selecionado == "Potência Aparente":  # Alterado o título e o eixo Y
+        fig.update_layout(title="Potência Aparente nas Fases", yaxis_title="Potência Aparente (VA)")
     
     date_23_05 = datetime(2025, 5, 23)
     fig.update_layout(
