@@ -74,7 +74,7 @@ for fase in ["A", "B", "C"]:
         }
     if f"corrente_anterior_{fase}" not in st.session_state:
         st.session_state[f"corrente_anterior_{fase}"] = 0.0
-
+        
 # --- Layout com logo e título lado a lado ---
 col_logo, col_titulo = st.columns([1, 5])
 with col_logo:
@@ -88,6 +88,19 @@ dia_escolhido = st.radio("Selecionar dia para visualização:", ("Dia Atual", "D
 # --- AUTOREFRESH (só para Dia Atual) ---
 if dia_escolhido == "Dia Atual":
     st_autorefresh(interval=REFRESH_INTERVAL_MS, limit=None, key="auto_refresh")
+
+# --- LÓGICA PARA LIMPAR DADOS AO MUDAR DE DIA ---
+if "last_dia_escolhido" not in st.session_state:
+    st.session_state.last_dia_escolhido = dia_escolhido
+
+if st.session_state.last_dia_escolhido != dia_escolhido:
+    for fase in ["A", "B", "C"]:
+        st.session_state[f"index_{fase}"] = 0
+        st.session_state[f"valores_{fase}"]["tensao"] = []
+        st.session_state[f"valores_{fase}"]["corrente"] = []
+        st.session_state[f"valores_{fase}"]["potencia"] = []
+        st.session_state[f"valores_{fase}"]["timestamp"] = []
+    st.session_state.last_dia_escolhido = dia_escolhido
 
 # --- FUNÇÃO PARA PEGAR OS DADOS SEGUNDO O DIA SELECIONADO ---
 def get_dados(fase, dia):
@@ -288,7 +301,6 @@ fig = go.Figure()
 cores = {"A": "#2980b9", "B": "#e67e22", "C": "#27ae60"}
 
 # Mapeamento do nome do gráfico para a chave do dicionário
-# CORRIGIDO: Agora o mapeamento lida com a string exata do radio
 grafico_key_map = {
     "Tensão": "tensao",
     "Corrente": "corrente",
@@ -301,14 +313,10 @@ for fase in ["A", "B", "C"]:
     
     modo = "lines+markers" if dia_escolhido == "Dia Atual" else "lines"
     
-    if dia_escolhido == "Dia Atual":
-        x_values = dados["timestamp"]
-    else:
-        x_values = dfs[fase]["Timestamp"] if not dfs[fase].empty else []
-
+    x_values = dados.get("timestamp", [])
+    
     y_key = grafico_key_map.get(grafico_selecionado)
     
-    # Adicionando verificação para garantir que a chave existe e os dados não estão vazios
     if y_key and dados.get(y_key):
         y_data = dados[y_key]
         fig.add_trace(go.Scatter(
