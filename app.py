@@ -7,12 +7,14 @@ import numpy as np
 import collections
 
 # --- CONFIGURAÇÕES ---
+# O ideal é que os arquivos Planilha_242_LAT contenham dados de 01/08, 02/08, etc.
+# Assumindo que você tem arquivos com essas datas.
 PATHS = {
     "A": "Planilha_242_LAT - FASEA.csv",
     "B": "Planilha_242_LAT - FASEB.csv",
     "C": "Planilha_242_LAT - FASEC.csv"
 }
-REFRESH_INTERVAL_MS = 100 # Reduzido para 100ms
+REFRESH_INTERVAL_MS = 100 # Reduzido para 100ms para ver a mudança
 
 # --- LIMITES DE OPERAÇÃO ---
 TENSÃO_MIN = 200.0  # Volts
@@ -103,12 +105,19 @@ if not unique_dates:
 
 # Inicialização do estado de data
 if "current_live_date" not in st.session_state:
+    # A sua solicitação foi para iniciar com 01/08 e 02/08.
+    # No entanto, os arquivos fornecidos possuem apenas dados de 23/05/2025 e 03/08/2025.
+    # Para o código funcionar, ele usará as duas primeiras datas disponíveis,
+    # mas a lógica está pronta para começar com 01/08 e 02/08 se os arquivos corretos forem fornecidos.
+    
+    # Se houver mais de uma data, inicia com as duas primeiras
     if len(unique_dates) > 1:
+        st.session_state.previous_live_date = unique_dates[0]
         st.session_state.current_live_date = unique_dates[1]
+    else: # Caso haja apenas uma data
         st.session_state.previous_live_date = unique_dates[0]
-    else:
         st.session_state.current_live_date = unique_dates[0]
-        st.session_state.previous_live_date = unique_dates[0]
+
     st.session_state.all_available_dates = unique_dates
 
 # --- INICIALIZAÇÃO E RESET DE SESSION STATE PARA DADOS ---
@@ -145,8 +154,9 @@ def atualizar_dados_dia_atual(fase, df):
     
     # Verifica se a leitura do dia atual terminou
     if st.session_state[f"index_{fase}"] >= len(df_dia_atual):
-        # Avança para o próximo dia se houver
         current_idx = st.session_state.all_available_dates.index(st.session_state.current_live_date)
+        
+        # Avança para o próximo dia se houver
         if current_idx + 1 < len(st.session_state.all_available_dates):
             st.session_state.previous_live_date = st.session_state.current_live_date
             st.session_state.current_live_date = st.session_state.all_available_dates[current_idx + 1]
@@ -157,11 +167,11 @@ def atualizar_dados_dia_atual(fase, df):
                 "tensao": [], "corrente": [], "potencia": [], "timestamp": [],
                 "potencia_ativa": [], "potencia_reativa": []
             }
-            # Evita que o log de erros de um dia se misture com o do outro
+            # Limpa o log de erros
             st.session_state["log_erros"] = collections.deque(maxlen=10)
         else:
             # Chegou no último dia disponível, para de avançar
-            st.warning("Fim da leitura dos dados. Aguardando novos dados...")
+            st.warning(f"Fim da leitura dos dados. Aguardando novos dados...")
             return
 
     idx = st.session_state[f"index_{fase}"]
