@@ -53,7 +53,6 @@ def load_and_clean_csv(path):
             except ValueError:
                 pass
         df['Timestamp'] = pd.to_datetime(df['Data'] + ' ' + df['Horário'], format='%d/%m/%Y %H:%M:%S')
-        # Adicionando ordenação por timestamp para garantir a sequência correta
         df = df.sort_values(by='Timestamp').reset_index(drop=True)
         return df
     except FileNotFoundError:
@@ -92,8 +91,13 @@ def atualizar_dados_dia_atual(fase, df):
         return
     
     if st.session_state[f"index_{fase}"] >= len(df):
+        # Reinicia o index e limpa os dados para simular um novo dia
         st.session_state[f"index_{fase}"] = 0
-    
+        st.session_state[f"valores_{fase}"]["tensao"] = []
+        st.session_state[f"valores_{fase}"]["corrente"] = []
+        st.session_state[f"valores_{fase}"]["potencia"] = []
+        st.session_state[f"valores_{fase}"]["timestamp"] = []
+        
     idx = st.session_state[f"index_{fase}"]
     row = df.iloc[idx]
     st.session_state[f"index_{fase}"] += 1
@@ -255,7 +259,6 @@ for fase in ["A", "B", "C"]:
         if not df.empty:
             y_key = grafico_key_map.get(grafico_selecionado)
             if y_key:
-                # Ordena os dados e, em seguida, adiciona o None para quebrar a linha no final
                 x_values = df["Timestamp"].tolist() + [None]
                 y_data = df[colunas[fase][y_key]].tolist() + [None]
                 modo = "lines"
