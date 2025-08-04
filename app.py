@@ -426,4 +426,109 @@ grafico_key_map = {
 
 plotted = False
 
-# Plotagem dos
+# Plotagem dos gráficos por fase
+if grafico_selecionado in ["Tensão", "Corrente", "Potência Aparente"]:
+    for fase in ["A", "B", "C"]:
+        if dia_escolhido == "Dia Atual":
+            dados = st.session_state[f"valores_{fase}"]
+            x_values = dados.get("timestamp", [])
+            y_key = grafico_key_map.get(grafico_selecionado)
+            if y_key and dados.get(y_key):
+                y_data = dados[y_key]
+                modo = "lines"
+                plotted = True
+            else:
+                continue
+        else: # Dia Anterior
+            df = dfs[fase]
+            if not df.empty:
+                y_key = grafico_key_map.get(grafico_selecionado)
+                if y_key:
+                    x_values = df["Timestamp"].tolist() + [None]
+                    y_data = df[colunas[fase][y_key]].tolist() + [None]
+                    modo = "lines"
+                    plotted = True
+                else:
+                    continue
+            else:
+                continue
+
+        if plotted:
+            fig.add_trace(go.Scatter(
+                x=x_values,
+                y=y_data,
+                mode=modo,
+                name=f"Fase {fase}",
+                line=dict(color=cores[fase])
+            ))
+# Plotagem dos gráficos totais
+elif grafico_selecionado in ["Potência Aparente Total", "Fator de Potência Total"]:
+    if dia_escolhido == "Dia Atual":
+        dados_A = st.session_state["valores_A"]
+        dados_B = st.session_state["valores_B"]
+        dados_C = st.session_state["valores_C"]
+        
+        if dados_A["timestamp"] and dados_B["timestamp"] and dados_C["timestamp"]:
+            x_values = dados_A["timestamp"]
+            p_ativa_total = np.array(dados_A["potencia_ativa"]) + np.array(dados_B["potencia_ativa"]) + np.array(dados_C["potencia_ativa"])
+            p_reativa_total = np.array(dados_A["potencia_reativa"]) + np.array(dados_B["potencia_reativa"]) + np.array(dados_C["potencia_reativa"])
+            
+            if grafico_selecionado == "Potência Aparente Total":
+                y_data = np.sqrt(p_ativa_total**2 + p_reativa_total**2)
+            else: # Fator de Potência Total
+                y_data = p_ativa_total / np.sqrt(p_ativa_total**2 + p_reativa_total**2)
+                y_data[np.isnan(y_data)] = 0 # Substitui NaNs por 0 se houver divisao por zero
+            
+            fig.add_trace(go.Scatter(x=x_values, y=y_data, mode='lines', name="Total", line=dict(color="#3498db")))
+            plotted = True
+    else: # Dia Anterior
+        df_A = dfs["A"]
+        df_B = dfs["B"]
+        df_C = dfs["C"]
+        
+        if not df_A.empty and not df_B.empty and not df_C.empty:
+            x_values = df_A["Timestamp"]
+            p_ativa_total = df_A[colunas["A"]["potencia_ativa"]].add(df_B[colunas["B"]["potencia_ativa"]], fill_value=0).add(df_C[colunas["C"]["potencia_ativa"]], fill_value=0)
+            p_reativa_total = df_A[colunas["A"]["potencia_reativa"]].add(df_B[colunas["B"]["potencia_reativa"]], fill_value=0).add(df_C[colunas["C"]["potencia_reativa"]], fill_value=0)
+            
+            if grafico_selecionado == "Potência Aparente Total":
+                y_data = np.sqrt(p_ativa_total**2 + p_reativa_total**2)
+            else: # Fator de Potência Total
+                y_data = p_ativa_total / np.sqrt(p_ativa_total**2 + p_reativa_total**2)
+                y_data = y_data.fillna(0) # Substitui NaNs por 0
+            
+            fig.add_trace(go.Scatter(x=x_values, y=y_data, mode='lines', name="Total", line=dict(color="#3498db")))
+            plotted = True
+
+
+if plotted:
+    date_23_05 = datetime(2025, 5, 23)
+    
+    if grafico_selecionado == "Tensão":
+        fig.update_layout(title="Tensão nas Fases", yaxis_title="Tensão (V)", yaxis=dict(range=[190, 250]))
+    elif grafico_selecionado == "Corrente":
+        fig.update_layout(title="Corrente nas Fases", yaxis_title="Corrente (A)")
+    elif grafico_selecionado == "Potência Aparente":
+        fig.update_layout(title="Potência Aparente nas Fases", yaxis_title="Potência Aparente (VA)")
+    elif grafico_selecionado == "Potência Aparente Total":
+        fig.update_layout(title="Potência Aparente Total", yaxis_title="Potência Aparente (VA)")
+    elif grafico_selecionado == "Fator de Potência Total":
+        fig.update_layout(title="Fator de Potência Total", yaxis_title="Fator de Potência", yaxis=dict(range=[-0.1, 1.1]))
+
+    fig.update_layout(
+        xaxis_title="Horário",
+        xaxis_tickformat='%H:%M',
+        xaxis=dict(
+            tickmode='array',
+            tickvals=[date_23_05 + timedelta(hours=h) for h in range(25)],
+            ticktext=[f'{h:02d}:00' for h in range(25)],
+            range=[date_23_05, date_23_05 + timedelta(days=1)],
+            showgrid=True,
+            gridcolor='rgba(128,128,128,0.2)'
+        ),
+        height=450,
+        template="simple_white"
+    )
+    st.plotly_chart(fig, use_container_width=True)
+else:
+    st.warning(f"Não há dados para exibir no gráfico de {grafico_selecionado}.")
