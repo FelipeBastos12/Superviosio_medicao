@@ -575,6 +575,17 @@ with col_conta:
         border-radius: 15px;
         margin-bottom: 15px;
     '>
+    <h3 style='color:white; text-align:center;'>Análise de Custos e Demanda</h3>
+        <div style='
+            background-color: #34495e;
+            color: #2ecc71;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            width: 100%;
+        '>
             Consumo: {consumo_total_para_calculo:.2f} kWh
             <br>
             Valor estimado: R$ {conta_estimada_acumulada:.2f}
@@ -751,5 +762,6 @@ with st.expander("Log de alarmes"):
             st.error(erro)
     else:
         st.info("Nenhum alarme registrado.")
+
 
 
