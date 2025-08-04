@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.graph_objs as go
 from streamlit_autorefresh import st_autorefresh
 from datetime import datetime, timedelta
+import numpy as np
 
 # --- CONFIGURAÇÕES ---
 PATHS = {
@@ -20,7 +21,9 @@ colunas = {
         "potencia": "Potencia_Aparente_Fase_A",
         "frequencia": "Frequencia_Fase_A",
         "fator_de_potencia": "fator_De_Potencia_Fase_A",
-        "consumo": "C (kWh)"  # Adicionado
+        "consumo": "C (kWh)",
+        "potencia_ativa": "Potencia_Ativa_Fase_A",
+        "potencia_reativa": "Potencia_Reativa_Fase_A"
     },
     "B": {
         "tensao": "Tensao_Fase_B",
@@ -28,7 +31,9 @@ colunas = {
         "potencia": "Potencia_Aparente_Fase_B",
         "frequencia": "Frequencia_Fase_B",
         "fator_de_potencia": "fator_De_Potencia_Fase_B",
-        "consumo": "C (kWh)"  # Adicionado
+        "consumo": "C (kWh)",
+        "potencia_ativa": "Potencia_Ativa_Fase_B",
+        "potencia_reativa": "Potencia_Reativa_Fase_B"
     },
     "C": {
         "tensao": "Tensao_Fase_C",
@@ -36,7 +41,9 @@ colunas = {
         "potencia": "Potencia_Aparente_Fase_C",
         "frequencia": "Frequencia_Fase_C",
         "fator_de_potencia": "fator_De_Potencia_Fase_C",
-        "consumo": "C (kWh)"  # Adicionado
+        "consumo": "C (kWh)",
+        "potencia_ativa": "Potencia_Ativa_Fase_C",
+        "potencia_reativa": "Potencia_Reativa_Fase_C"
     }
 }
 
@@ -139,13 +146,16 @@ valores_corrente = {}
 valores_potencia = {}
 valores_frequencia = {}
 valores_fator_potencia = {}
-valores_consumo = {}  # Adicionado
+valores_consumo = {}
+valores_potencia_ativa = {}
+valores_potencia_reativa = {}
 
 for fase in ["A", "B", "C"]:
     df = dfs[fase]
     
     if df.empty:
         tensao, corrente, potencia, frequencia, fator_potencia, consumo = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+        potencia_ativa, potencia_reativa = 0.0, 0.0
     else:
         if dia_escolhido == "Dia Atual":
             dados_sessao = st.session_state[f"valores_{fase}"]
@@ -154,18 +164,25 @@ for fase in ["A", "B", "C"]:
                 tensao = dados_sessao["tensao"][last_idx]
                 corrente = dados_sessao["corrente"][last_idx]
                 potencia = dados_sessao["potencia"][last_idx]
-                frequencia = df.iloc[st.session_state[f"index_{fase}"] - 1].get(colunas[fase]["frequencia"], 0)
-                fator_potencia = df.iloc[st.session_state[f"index_{fase}"] - 1].get(colunas[fase]["fator_de_potencia"], 0)
-                consumo = df.iloc[st.session_state[f"index_{fase}"] - 1].get(colunas[fase]["consumo"], 0)
+                row = df.iloc[st.session_state[f"index_{fase}"] - 1]
+                frequencia = row.get(colunas[fase]["frequencia"], 0)
+                fator_potencia = row.get(colunas[fase]["fator_de_potencia"], 0)
+                consumo = row.get(colunas[fase]["consumo"], 0)
+                potencia_ativa = row.get(colunas[fase]["potencia_ativa"], 0)
+                potencia_reativa = row.get(colunas[fase]["potencia_reativa"], 0)
             else:
                 tensao, corrente, potencia, frequencia, fator_potencia, consumo = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+                potencia_ativa, potencia_reativa = 0.0, 0.0
         else:  # Dia Anterior
-            tensao = float(df[colunas[fase]["tensao"]].iloc[-1])
-            corrente = float(df[colunas[fase]["corrente"]].iloc[-1])
-            potencia = float(df[colunas[fase]["potencia"]].iloc[-1])
-            frequencia = float(df[colunas[fase]["frequencia"]].iloc[-1])
-            fator_potencia = float(df[colunas[fase]["fator_de_potencia"]].iloc[-1])
-            consumo = float(df[colunas[fase]["consumo"]].iloc[-1])
+            row = df.iloc[-1]
+            tensao = row[colunas[fase]["tensao"]]
+            corrente = row[colunas[fase]["corrente"]]
+            potencia = row[colunas[fase]["potencia"]]
+            frequencia = row[colunas[fase]["frequencia"]]
+            fator_potencia = row[colunas[fase]["fator_de_potencia"]]
+            consumo = row[colunas[fase]["consumo"]]
+            potencia_ativa = row[colunas[fase]["potencia_ativa"]]
+            potencia_reativa = row[colunas[fase]["potencia_reativa"]]
 
     valores_tensao[fase] = float(tensao)
     valores_corrente[fase] = float(corrente)
@@ -173,6 +190,8 @@ for fase in ["A", "B", "C"]:
     valores_frequencia[fase] = float(frequencia)
     valores_fator_potencia[fase] = float(fator_potencia)
     valores_consumo[fase] = float(consumo)
+    valores_potencia_ativa[fase] = float(potencia_ativa)
+    valores_potencia_reativa[fase] = float(potencia_reativa)
 
 # --- VISOR PERSONALIZADO ---
 def visor_fases(label, valores_por_fase, unidade, cor_fundo="#2c3e50"):
@@ -230,7 +249,34 @@ def visor_fases(label, valores_por_fase, unidade, cor_fundo="#2c3e50"):
     </div>
     """, unsafe_allow_html=True)
 
+# --- VISOR PERSONALIZADO PARA VALORES TOTAIS ---
+def visor_total(label, valor_total, unidade, cor_fundo="#2c3e50"):
+    st.markdown(f"""
+    <div style='
+        background-color: {cor_fundo};
+        padding: 15px;
+        border-radius: 15px;
+        margin-bottom: 15px;
+    '>
+        <h3 style='color:white; text-align:center;'>{label}</h3>
+        <div style='
+            background-color: #34495e;
+            color: #ffffff;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            width: 100%;
+        '>
+            Total: {valor_total:.2f} {unidade}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
 # --- EXIBIÇÃO AGRUPADA EM GRADE (3 colunas, depois 3 colunas) ---
+st.markdown("<h3>Grandezas por Fase</h3>", unsafe_allow_html=True)
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -240,14 +286,46 @@ with col2:
 with col3:
     visor_fases("Frequência", valores_frequencia, "Hz")
 
-col4, col5, col6 = st.columns(3)  # Alterado para 3 colunas
+col4, col5, col6 = st.columns(3)
 
 with col4:
     visor_fases("Potência Aparente", valores_potencia, "VA")
 with col5:
     visor_fases("Fator de Potência", valores_fator_potencia, "")
-with col6:  # Adicionado o novo visor
+with col6:
     visor_fases("Consumo", valores_consumo, "kWh")
+
+
+# --- CÁLCULOS DOS VALORES TOTAIS E DEMANDA ---
+P_total_inst = sum(valores_potencia_ativa.values())
+Q_total_inst = sum(valores_potencia_reativa.values())
+S_total_inst = np.sqrt(P_total_inst**2 + Q_total_inst**2)
+FP_total_inst = P_total_inst / S_total_inst if S_total_inst != 0 else 0
+
+# Para demanda, vamos calcular a média móvel da potência ativa total
+demand_window = 5 # 5 pontos de 3min = 15 minutos
+total_potencia_ativa_historico = [dfs[fase][colunas[fase]["potencia_ativa"]].tolist() for fase in ["A", "B", "C"]]
+if total_potencia_ativa_historico and total_potencia_ativa_historico[0]:
+    total_potencia_ativa_historico_df = pd.DataFrame({f"fase_{f}": v for f, v in zip(["A", "B", "C"], total_potencia_ativa_historico)})
+    total_potencia_ativa_historico_df["total"] = total_potencia_ativa_historico_df.sum(axis=1)
+    
+    if len(total_potencia_ativa_historico_df) >= demand_window:
+        demanda_maxima = total_potencia_ativa_historico_df["total"].rolling(window=demand_window).mean().max()
+    else:
+        demanda_maxima = 0.0
+else:
+    demanda_maxima = 0.0
+
+st.markdown("<h3>Grandezas Totais e Demanda</h3>", unsafe_allow_html=True)
+col7, col8, col9 = st.columns(3)
+
+with col7:
+    visor_total("Potência Aparente Total", S_total_inst, "VA")
+with col8:
+    visor_total("Fator de Potência Total", FP_total_inst, "")
+with col9:
+    visor_total("Demanda Máxima", demanda_maxima, "W")
+
 
 # --- GRÁFICOS DINÂMICOS ---
 grafico_selecionado = st.radio("", ("Tensão", "Corrente", "Potência Aparente"))
