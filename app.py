@@ -258,7 +258,6 @@ def atualizar_dados_dia_atual(fase, df):
 for fase in ["A", "B", "C"]:
     atualizar_dados_dia_atual(fase, dfs[fase])
     
-st.markdown(f"**Visualizando dados do:**<br/>- **Dia Atual:** {st.session_state['dia_atual'].strftime('%d/%m/%Y')}<br/>- **Dia Anterior:** {st.session_state['dia_anterior'].strftime('%d/%m/%Y')}", unsafe_allow_html=True)
 st.markdown("---")
 
 # --- SELETOR DE DIA ---
