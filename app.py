@@ -17,20 +17,23 @@ colunas = {
     "A": {
         "tensao": "Tensao_Fase_A",
         "corrente": "Corrente_Fase_A",
-        "potencia": "Potencia_Aparente_Fase_A",  # Alterado para Potência Aparente
-        "frequencia": "Frequencia_Fase_A"
+        "potencia": "Potencia_Aparente_Fase_A",
+        "frequencia": "Frequencia_Fase_A",
+        "fator_de_potencia": "fator_De_Potencia_Fase_A"  # Adicionado
     },
     "B": {
         "tensao": "Tensao_Fase_B",
         "corrente": "Corrente_Fase_B",
-        "potencia": "Potencia_Aparente_Fase_B",  # Alterado para Potência Aparente
-        "frequencia": "Frequencia_Fase_B"
+        "potencia": "Potencia_Aparente_Fase_B",
+        "frequencia": "Frequencia_Fase_B",
+        "fator_de_potencia": "fator_De_Potencia_Fase_B"  # Adicionado
     },
     "C": {
         "tensao": "Tensao_Fase_C",
         "corrente": "Corrente_Fase_C",
-        "potencia": "Potencia_Aparente_Fase_C",  # Alterado para Potência Aparente
-        "frequencia": "Frequencia_Fase_C"
+        "potencia": "Potencia_Aparente_Fase_C",
+        "frequencia": "Frequencia_Fase_C",
+        "fator_de_potencia": "fator_De_Potencia_Fase_C"  # Adicionado
     }
 }
 
@@ -91,7 +94,6 @@ def atualizar_dados_dia_atual(fase, df):
         return
     
     if st.session_state[f"index_{fase}"] >= len(df):
-        # Reinicia o index e limpa os dados para simular um novo dia
         st.session_state[f"index_{fase}"] = 0
         st.session_state[f"valores_{fase}"]["tensao"] = []
         st.session_state[f"valores_{fase}"]["corrente"] = []
@@ -133,12 +135,13 @@ valores_tensao = {}
 valores_corrente = {}
 valores_potencia = {}
 valores_frequencia = {}
+valores_fator_potencia = {}  # Adicionado
 
 for fase in ["A", "B", "C"]:
     df = dfs[fase]
     
     if df.empty:
-        tensao, corrente, potencia, frequencia = 0.0, 0.0, 0.0, 0.0
+        tensao, corrente, potencia, frequencia, fator_potencia = 0.0, 0.0, 0.0, 0.0, 0.0
     else:
         if dia_escolhido == "Dia Atual":
             dados_sessao = st.session_state[f"valores_{fase}"]
@@ -148,18 +151,21 @@ for fase in ["A", "B", "C"]:
                 corrente = dados_sessao["corrente"][last_idx]
                 potencia = dados_sessao["potencia"][last_idx]
                 frequencia = df.iloc[st.session_state[f"index_{fase}"] - 1].get(colunas[fase]["frequencia"], 0)
+                fator_potencia = df.iloc[st.session_state[f"index_{fase}"] - 1].get(colunas[fase]["fator_de_potencia"], 0)
             else:
-                tensao, corrente, potencia, frequencia = 0.0, 0.0, 0.0, 0.0
+                tensao, corrente, potencia, frequencia, fator_potencia = 0.0, 0.0, 0.0, 0.0, 0.0
         else:  # Dia Anterior
             tensao = float(df[colunas[fase]["tensao"]].iloc[-1])
             corrente = float(df[colunas[fase]["corrente"]].iloc[-1])
             potencia = float(df[colunas[fase]["potencia"]].iloc[-1])
             frequencia = float(df[colunas[fase]["frequencia"]].iloc[-1])
+            fator_potencia = float(df[colunas[fase]["fator_de_potencia"]].iloc[-1])
 
     valores_tensao[fase] = float(tensao)
     valores_corrente[fase] = float(corrente)
     valores_potencia[fase] = float(potencia)
     valores_frequencia[fase] = float(frequencia)
+    valores_fator_potencia[fase] = float(fator_potencia)
 
 # --- VISOR PERSONALIZADO ---
 def visor_fases(label, valores_por_fase, unidade, cor_fundo="#2c3e50"):
@@ -217,22 +223,24 @@ def visor_fases(label, valores_por_fase, unidade, cor_fundo="#2c3e50"):
     </div>
     """, unsafe_allow_html=True)
 
-# --- EXIBIÇÃO AGRUPADA EM GRADE 2x2 ---
-row1_col1, row1_col2 = st.columns(2)
-row2_col1, row2_col2 = st.columns(2)
+# --- EXIBIÇÃO AGRUPADA EM GRADE (3 colunas, depois 2 colunas) ---
+col1, col2, col3 = st.columns(3)
 
-with row1_col1:
+with col1:
     visor_fases("Tensão", valores_tensao, "V")
-with row1_col2:
+with col2:
     visor_fases("Corrente", valores_corrente, "A")
-with row2_col1:
-    # Alterado o label
-    visor_fases("Potência Aparente", valores_potencia, "VA")
-with row2_col2:
+with col3:
     visor_fases("Frequência", valores_frequencia, "Hz")
 
+col4, col5 = st.columns(2)
+
+with col4:
+    visor_fases("Potência Aparente", valores_potencia, "VA")
+with col5:
+    visor_fases("Fator de Potência", valores_fator_potencia, "")
+
 # --- GRÁFICOS DINÂMICOS ---
-# Alterado o rótulo do rádio button
 grafico_selecionado = st.radio("", ("Tensão", "Corrente", "Potência Aparente"))
 
 fig = go.Figure()
@@ -241,7 +249,7 @@ cores = {"A": "#2980b9", "B": "#e67e22", "C": "#27ae60"}
 grafico_key_map = {
     "Tensão": "tensao",
     "Corrente": "corrente",
-    "Potência Aparente": "potencia"  # Mapeamento para a nova chave
+    "Potência Aparente": "potencia"
 }
 
 plotted = False
@@ -288,7 +296,7 @@ if plotted:
         )
     elif grafico_selecionado == "Corrente":
         fig.update_layout(title="Corrente nas Fases", yaxis_title="Corrente (A)")
-    elif grafico_selecionado == "Potência Aparente":  # Alterado o título e o eixo Y
+    elif grafico_selecionado == "Potência Aparente":
         fig.update_layout(title="Potência Aparente nas Fases", yaxis_title="Potência Aparente (VA)")
     
     date_23_05 = datetime(2025, 5, 23)
