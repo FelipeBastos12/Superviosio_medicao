@@ -152,24 +152,23 @@ valores_frequencia = {}
 for fase in ["A", "B", "C"]:
     df = dfs[fase]
     if dia_escolhido == "Dia Atual":
-        # Se os dados já estão no buffer de sessão, pega o último. Se não, usa o primeiro da planilha.
+        # ===> VERIFICAÇÃO ADICIONADA AQUI <===
         if st.session_state[f"valores_{fase}"]["timestamp"]:
             last_idx = len(st.session_state[f"valores_{fase}"]["timestamp"]) - 1
             tensao = st.session_state[f"valores_{fase}"]["tensao"][last_idx]
             corrente = st.session_state[f"valores_{fase}"]["corrente"][last_idx]
             potencia = st.session_state[f"valores_{fase}"]["potencia"][last_idx]
-            # Frequência não está no session state, pega do dataframe original
+            
             row_idx_original = st.session_state[f"index_{fase}"] - 1
             if row_idx_original < 0:
                 row_idx_original = 0
             frequencia = df.iloc[row_idx_original].get(colunas[fase]["frequencia"], 0)
         else:
-            # Caso o buffer esteja vazio, pega a primeira linha para evitar erro
-            row = df.iloc[0]
-            tensao = row.get(colunas[fase]["tensao"], 0)
-            corrente = row.get(colunas[fase]["corrente"], 0)
-            potencia = row.get(colunas[fase]["potencia"], 0)
-            frequencia = row.get(colunas[fase]["frequencia"], 0)
+            # Caso o buffer esteja vazio, define valores padrão
+            tensao = 0.0
+            corrente = 0.0
+            potencia = 0.0
+            frequencia = 0.0
 
         # Corrente zero → mantém anterior
         if corrente == 0:
@@ -183,10 +182,18 @@ for fase in ["A", "B", "C"]:
         valores_frequencia[fase] = float(frequencia)
 
     else:  # Dia Anterior pega o último valor para exibir no visor
-        valores_tensao[fase] = float(df[colunas[fase]["tensao"]].iloc[-1])
-        valores_corrente[fase] = float(df[colunas[fase]["corrente"]].iloc[-1])
-        valores_potencia[fase] = float(df[colunas[fase]["potencia"]].iloc[-1])
-        valores_frequencia[fase] = float(df[colunas[fase]["frequencia"]].iloc[-1])
+        # ===> VERIFICAÇÃO ADICIONADA AQUI TAMBÉM <===
+        if not df.empty:
+            valores_tensao[fase] = float(df[colunas[fase]["tensao"]].iloc[-1])
+            valores_corrente[fase] = float(df[colunas[fase]["corrente"]].iloc[-1])
+            valores_potencia[fase] = float(df[colunas[fase]["potencia"]].iloc[-1])
+            valores_frequencia[fase] = float(df[colunas[fase]["frequencia"]].iloc[-1])
+        else:
+            valores_tensao[fase] = 0.0
+            valores_corrente[fase] = 0.0
+            valores_potencia[fase] = 0.0
+            valores_frequencia[fase] = 0.0
+
 
 # --- VISOR PERSONALIZADO ---
 def visor_fases(label, valores_por_fase, unidade, cor_fundo="#2c3e50"):
@@ -329,4 +336,3 @@ fig.update_layout(
     template="simple_white"
 )
 st.plotly_chart(fig, use_container_width=True)
-
