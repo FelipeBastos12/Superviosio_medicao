@@ -218,16 +218,26 @@ def visor_fases(label, valores_por_fase, unidade):
     cor_fundo_alerta = "#c0392b"
     cor_fundo_atual = cor_fundo_default
     
-    # Verifica os limites para o visor inteiro
-    if label == "Tensão" and any(v < TENSÃO_MIN or v > TENSÃO_MAX for v in valores_por_fase.values()):
-        cor_fundo_atual = cor_fundo_alerta
+    # Define as cores do texto com base nas regras do usuário
+    cores_texto = {}
+    for fase in ["A", "B", "C"]:
+        if label == "Tensão":
+            if TENSÃO_MIN <= valores_por_fase[fase] <= TENSÃO_MAX:
+                cores_texto[fase] = "#2ecc71" # Verde
+            else:
+                cores_texto[fase] = "#c0392b" # Vermelho
+                cor_fundo_atual = cor_fundo_alerta # Aciona o alarme de fundo
+        elif label == "Corrente":
+            cores_texto[fase] = "#ffffff" # Branco
+            if valores_por_fase[fase] > CORRENTE_MAX:
+                cor_fundo_atual = cor_fundo_alerta # Aciona o alarme de fundo
+        elif label == "Potência Aparente":
+            cores_texto[fase] = "#ffffff" # Branco
+            if valores_por_fase[fase] > POTENCIA_APARENTE_MAX:
+                cor_fundo_atual = cor_fundo_alerta # Aciona o alarme de fundo
+        else:
+            cores_texto[fase] = "#ffffff" # Branco padrão para outros visores
     
-    if label == "Corrente" and any(v > CORRENTE_MAX for v in valores_por_fase.values()):
-        cor_fundo_atual = cor_fundo_alerta
-
-    if label == "Potência Aparente" and any(v > POTENCIA_APARENTE_MAX for v in valores_por_fase.values()):
-        cor_fundo_atual = cor_fundo_alerta
-            
     st.markdown(f"""
     <div style='
         background-color: {cor_fundo_atual};
@@ -239,7 +249,7 @@ def visor_fases(label, valores_por_fase, unidade):
         <div style='display: flex; flex-direction: column; gap: 10px;'>
             <div style='
                 background-color: #34495e;
-                color: #ffffff;
+                color: {cores_texto["A"]};
                 padding: 15px;
                 border-radius: 10px;
                 text-align: center;
@@ -251,7 +261,7 @@ def visor_fases(label, valores_por_fase, unidade):
             </div>
             <div style='
                 background-color: #34495e;
-                color: #ffffff;
+                color: {cores_texto["B"]};
                 padding: 15px;
                 border-radius: 10px;
                 text-align: center;
@@ -263,7 +273,7 @@ def visor_fases(label, valores_por_fase, unidade):
             </div>
             <div style='
                 background-color: #34495e;
-                color: #ffffff;
+                color: {cores_texto["C"]};
                 padding: 15px;
                 border-radius: 10px;
                 text-align: center;
