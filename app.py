@@ -91,6 +91,9 @@ for fase in ["A", "B", "C"]:
         }
     if f"corrente_anterior_{fase}" not in st.session_state:
         st.session_state[f"corrente_anterior_{fase}"] = 0.0
+        
+if "grafico_selecionado" not in st.session_state:
+    st.session_state["grafico_selecionado"] = "Tensão"
 
 # --- Layout com logo e título lado a lado ---
 col_logo, col_titulo = st.columns([1, 5])
@@ -347,16 +350,19 @@ with col9:
 
 
 # --- GRÁFICOS DINÂMICOS ---
-grafico_selecionado = st.radio(
-    "", 
-    (
-        "Tensão", 
-        "Corrente", 
-        "Potência Aparente", 
-        "Potência Aparente Total", 
-        "Fator de Potência Total"
-    )
-)
+st.markdown("<h3>Selecione o Gráfico</h3>", unsafe_allow_html=True)
+col_left, col_right = st.columns([2, 3])
+
+with col_left:
+    st.button("Tensão", on_click=lambda: st.session_state.update(grafico_selecionado="Tensão"), use_container_width=True)
+    st.button("Corrente", on_click=lambda: st.session_state.update(grafico_selecionado="Corrente"), use_container_width=True)
+
+with col_right:
+    st.button("Potência Aparente", on_click=lambda: st.session_state.update(grafico_selecionado="Potência Aparente"), use_container_width=True)
+    st.button("Potência Aparente Total", on_click=lambda: st.session_state.update(grafico_selecionado="Potência Aparente Total"), use_container_width=True)
+    st.button("Fator de Potência Total", on_click=lambda: st.session_state.update(grafico_selecionado="Fator de Potência Total"), use_container_width=True)
+
+grafico_selecionado = st.session_state.get("grafico_selecionado", "Tensão")
 
 fig = go.Figure()
 cores = {"A": "#2980b9", "B": "#e67e22", "C": "#27ae60"}
