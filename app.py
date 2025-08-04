@@ -532,3 +532,4 @@ if plotted:
     st.plotly_chart(fig, use_container_width=True)
 else:
     st.warning(f"Não há dados para exibir no gráfico de {grafico_selecionado}.")
+
