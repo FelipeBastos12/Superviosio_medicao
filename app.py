@@ -53,6 +53,8 @@ def load_and_clean_csv(path):
             except ValueError:
                 pass
         df['Timestamp'] = pd.to_datetime(df['Data'] + ' ' + df['Horário'], format='%d/%m/%Y %H:%M:%S')
+        # Adicionando ordenação por timestamp para garantir a sequência correta
+        df = df.sort_values(by='Timestamp').reset_index(drop=True)
         return df
     except FileNotFoundError:
         st.error(f"Arquivo não encontrado: {path}")
@@ -253,7 +255,7 @@ for fase in ["A", "B", "C"]:
         if not df.empty:
             y_key = grafico_key_map.get(grafico_selecionado)
             if y_key:
-                # Adiciona None para quebrar a linha no final e evitar o loop
+                # Ordena os dados e, em seguida, adiciona o None para quebrar a linha no final
                 x_values = df["Timestamp"].tolist() + [None]
                 y_data = df[colunas[fase][y_key]].tolist() + [None]
                 modo = "lines"
