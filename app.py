@@ -222,8 +222,12 @@ for fase in ["A", "B", "C"]:
     valores_potencia_ativa[fase] = float(potencia_ativa)
     valores_potencia_reativa[fase] = float(potencia_reativa)
 
+# Obtém o timestamp do último dado para usar no log
+timestamp_ultimo_dado = st.session_state["valores_A"]["timestamp"][-1] if st.session_state["valores_A"]["timestamp"] else datetime.now()
+
+
 # --- VISOR PERSONALIZADO ---
-def visor_fases(label, valores_por_fase, unidade):
+def visor_fases(label, valores_por_fase, unidade, timestamp_erro):
     cor_fundo_default = "#2c3e50"
     cor_fundo_alerta = "#c0392b"
     cor_fundo_atual = cor_fundo_default
@@ -238,31 +242,31 @@ def visor_fases(label, valores_por_fase, unidade):
             else:
                 cores_texto[fase] = "#c0392b" # Vermelho
                 cor_fundo_atual = cor_fundo_alerta # Aciona o alarme de fundo
-                st.session_state["log_erros"].append(f"[{datetime.now().strftime('%H:%M:%S')}] ALARME de Tensão na Fase {fase}: {valor:.2f} {unidade}")
+                st.session_state["log_erros"].append(f"[{timestamp_erro.strftime('%H:%M:%S')}] ALARME de Tensão na Fase {fase}: {valor:.2f} {unidade}")
         elif label == "Corrente":
             cores_texto[fase] =  "#2ecc71" # Verde
             if valor > CORRENTE_MAX:
                 cores_texto[fase] = "#c0392b" # Vermelho
                 cor_fundo_atual = cor_fundo_alerta
-                st.session_state["log_erros"].append(f"[{datetime.now().strftime('%H:%M:%S')}] ALARME de Corrente na Fase {fase}: {valor:.2f} {unidade}")
+                st.session_state["log_erros"].append(f"[{timestamp_erro.strftime('%H:%M:%S')}] ALARME de Corrente na Fase {fase}: {valor:.2f} {unidade}")
         elif label == "Potência Aparente":
             cores_texto[fase] =  "#2ecc71" # Verde
             if valor > POTENCIA_APARENTE_MAX:
                 cores_texto[fase] = "#c0392b" # Vermelho
                 cor_fundo_atual = cor_fundo_alerta
-                st.session_state["log_erros"].append(f"[{datetime.now().strftime('%H:%M:%S')}] ALARME de Potência na Fase {fase}: {valor:.2f} {unidade}")
+                st.session_state["log_erros"].append(f"[{timestamp_erro.strftime('%H:%M:%S')}] ALARME de Potência na Fase {fase}: {valor:.2f} {unidade}")
         elif label == "Frequência":
             cores_texto[fase] =  "#2ecc71" # Verde
             if not (FREQUENCIA_MIN <= valor <= FREQUENCIA_MAX):
                 cores_texto[fase] = "#c0392b" # Vermelho
                 cor_fundo_atual = cor_fundo_alerta
-                st.session_state["log_erros"].append(f"[{datetime.now().strftime('%H:%M:%S')}] ALARME de Frequência na Fase {fase}: {valor:.2f} {unidade}")
+                st.session_state["log_erros"].append(f"[{timestamp_erro.strftime('%H:%M:%S')}] ALARME de Frequência na Fase {fase}: {valor:.2f} {unidade}")
         elif label == "Fator de Potência":
             cores_texto[fase] =  "#2ecc71" # Verde
             if valor < FATOR_POTENCIA_MIN:
                 cores_texto[fase] = "#c0392b" # Vermelho
                 cor_fundo_atual = cor_fundo_alerta
-                st.session_state["log_erros"].append(f"[{datetime.now().strftime('%H:%M:%S')}] ALARME de Fator de Potência na Fase {fase}: {valor:.2f}")
+                st.session_state["log_erros"].append(f"[{timestamp_erro.strftime('%H:%M:%S')}] ALARME de Fator de Potência na Fase {fase}: {valor:.2f}")
         else:
             cores_texto[fase] =  "#2ecc71" # Verde
     
@@ -316,7 +320,7 @@ def visor_fases(label, valores_por_fase, unidade):
     """, unsafe_allow_html=True)
 
 # --- VISOR PERSONALIZADO PARA VALORES TOTAIS ---
-def visor_total(label, valor_total, unidade, limite_superior=None, limite_inferior=None):
+def visor_total(label, valor_total, unidade, timestamp_erro, limite_superior=None, limite_inferior=None):
     cor_fundo_default = "#2c3e50"
     cor_fundo_alerta = "#c0392b"
     cor_fundo_atual = cor_fundo_default
@@ -335,7 +339,7 @@ def visor_total(label, valor_total, unidade, limite_superior=None, limite_inferi
     if alarme_acionado:
         cor_fundo_atual = cor_fundo_alerta
         cor_texto_atual = cor_texto_alerta
-        st.session_state["log_erros"].append(f"[{datetime.now().strftime('%H:%M:%S')}] ALARME Total de {label}: {valor_total:.2f} {unidade}")
+        st.session_state["log_erros"].append(f"[{timestamp_erro.strftime('%H:%M:%S')}] ALARME Total de {label}: {valor_total:.2f} {unidade}")
 
     st.markdown(f"""
     <div style='
@@ -366,20 +370,20 @@ st.markdown("<h3>Grandezas por Fase</h3>", unsafe_allow_html=True)
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    visor_fases("Tensão", valores_tensao, "V")
+    visor_fases("Tensão", valores_tensao, "V", timestamp_ultimo_dado)
 with col2:
-    visor_fases("Corrente", valores_corrente, "A")
+    visor_fases("Corrente", valores_corrente, "A", timestamp_ultimo_dado)
 with col3:
-    visor_fases("Frequência", valores_frequencia, "Hz")
+    visor_fases("Frequência", valores_frequencia, "Hz", timestamp_ultimo_dado)
 
 col4, col5, col6 = st.columns(3)
 
 with col4:
-    visor_fases("Potência Aparente", valores_potencia, "VA")
+    visor_fases("Potência Aparente", valores_potencia, "VA", timestamp_ultimo_dado)
 with col5:
-    visor_fases("Fator de Potência", valores_fator_potencia, "")
+    visor_fases("Fator de Potência", valores_fator_potencia, "", timestamp_ultimo_dado)
 with col6:
-    visor_fases("Consumo", valores_consumo, "kWh")
+    visor_fases("Consumo", valores_consumo, "kWh", timestamp_ultimo_dado)
 
 
 # --- CÁLCULOS DOS VALORES TOTAIS E DEMANDA ---
@@ -416,11 +420,11 @@ st.markdown("<h3>Grandezas Totais e Demanda</h3>", unsafe_allow_html=True)
 col7, col8, col9 = st.columns(3)
 
 with col7:
-    visor_total("Potência Aparente Total", S_total_inst, "VA", limite_superior=POTENCIA_APARENTE_TOTAL_MAX)
+    visor_total("Potência Aparente Total", S_total_inst, "VA", timestamp_ultimo_dado, limite_superior=POTENCIA_APARENTE_TOTAL_MAX)
 with col8:
-    visor_total("Fator de Potência Total", FP_total_inst, "", limite_inferior=FATOR_POTENCIA_MIN)
+    visor_total("Fator de Potência Total", FP_total_inst, "", timestamp_ultimo_dado, limite_inferior=FATOR_POTENCIA_MIN)
 with col9:
-    visor_total("Demanda Máxima", demanda_maxima, "W", limite_superior=DEMANDA_MAXIMA)
+    visor_total("Demanda Máxima", demanda_maxima, "W", timestamp_ultimo_dado, limite_superior=DEMANDA_MAXIMA)
 
 
 # --- GRÁFICOS DINÂMICOS ---
@@ -556,11 +560,10 @@ if plotted:
 else:
     st.warning(f"Não há dados para exibir no gráfico de {grafico_selecionado}.")
 
-# --- LOG DE ERROS ---
-st.markdown("<h3>Log de Erros</h3>", unsafe_allow_html=True)
-if st.session_state["log_erros"]:
-    for erro in reversed(st.session_state["log_erros"]):
-        st.error(erro)
-else:
-    st.info("Nenhum alarme registrado.")
-
+# --- LOG DE ERROS (agora em um expander) ---
+with st.expander("Clique para ver o Log de Erros"):
+    if st.session_state["log_erros"]:
+        for erro in reversed(st.session_state["log_erros"]):
+            st.error(erro)
+    else:
+        st.info("Nenhum alarme registrado.")
