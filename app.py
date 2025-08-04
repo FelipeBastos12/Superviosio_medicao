@@ -121,7 +121,7 @@ for fase in ["A", "B", "C"]:
     if f"valores_{fase}" not in st.session_state:
         st.session_state[f"valores_{fase}"] = {
             "tensao": [], "corrente": [], "potencia": [], "timestamp": [],
-            "potencia_ativa": [], "potencia_reativa": []
+            "potencia_ativa": [], "potencia_reativa": [], "consumo": []
         }
     if f"corrente_anterior_{fase}" not in st.session_state:
         st.session_state[f"corrente_anterior_{fase}"] = 0.0
@@ -132,12 +132,21 @@ if "grafico_selecionado" not in st.session_state:
 if "log_erros" not in st.session_state:
     st.session_state["log_erros"] = collections.deque(maxlen=10)
 
-# --- Variáveis para a demanda máxima histórica ---
+# --- Variáveis para a demanda máxima histórica e consumo acumulado ---
 if "max_demanda_historica" not in st.session_state:
     st.session_state["max_demanda_historica"] = 0.0
 if "dia_max_demanda_historica" not in st.session_state:
     st.session_state["dia_max_demanda_historica"] = ""
-
+if "consumo_acumulado" not in st.session_state:
+    st.session_state["consumo_acumulado"] = 0.0
+    
+# --- Função para calcular o consumo diário de forma segura
+def calcular_consumo_diario(df):
+    if df.empty or 'C (kWh)' not in df.columns:
+        return 0.0
+    
+    consumo_diario = df['C (kWh)'].iloc[-1] - df['C (kWh)'].iloc[0]
+    return consumo_diario
 
 # --- Layout com logo e título lado a lado ---
 col_logo, col_titulo = st.columns([1, 5])
@@ -157,7 +166,14 @@ def atualizar_dados_dia_atual(fase, df):
         return
         
     if st.session_state[f"index_{fase}"] >= len(df_dia_atual):
+        # AQUI É ONDE O DIA MUDA - FIM DA SIMULAÇÃO DO DIA ANTERIOR
         if fase == "C":
+            # Calcula e adiciona o consumo do dia anterior ao acumulado
+            df_dia_anterior = dfs["A"][dfs["A"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
+            if not df_dia_anterior.empty and 'C (kWh)' in df_dia_anterior.columns:
+                consumo_do_dia_anterior = calcular_consumo_diario(df_dia_anterior)
+                st.session_state["consumo_acumulado"] += consumo_do_dia_anterior
+                
             st.session_state["dia_anterior"] = st.session_state["dia_atual"]
             st.session_state["dia_atual"] += timedelta(days=1)
             df_dia_atual_prox = df[df["Timestamp"].dt.date == st.session_state["dia_atual"]]
@@ -175,6 +191,7 @@ def atualizar_dados_dia_atual(fase, df):
         st.session_state[f"valores_{fase}"]["timestamp"] = []
         st.session_state[f"valores_{fase}"]["potencia_ativa"] = []
         st.session_state[f"valores_{fase}"]["potencia_reativa"] = []
+        st.session_state[f"valores_{fase}"]["consumo"] = []
         
     idx = st.session_state[f"index_{fase}"]
     row = df_dia_atual.iloc[idx]
@@ -185,6 +202,7 @@ def atualizar_dados_dia_atual(fase, df):
     potencia = row.get(colunas[fase]["potencia"], None)
     potencia_ativa = row.get(colunas[fase]["potencia_ativa"], None)
     potencia_reativa = row.get(colunas[fase]["potencia_reativa"], None)
+    consumo = row.get(colunas[fase]["consumo"], None)
     timestamp = row.get("Timestamp", None)
 
     if corrente == 0:
@@ -202,6 +220,8 @@ def atualizar_dados_dia_atual(fase, df):
         st.session_state[f"valores_{fase}"]["potencia_ativa"].append(float(potencia_ativa))
     if potencia_reativa is not None:
         st.session_state[f"valores_{fase}"]["potencia_reativa"].append(float(potencia_reativa))
+    if consumo is not None:
+        st.session_state[f"valores_{fase}"]["consumo"].append(float(consumo))
     if timestamp is not None:
         st.session_state[f"valores_{fase}"]["timestamp"].append(timestamp)
 
@@ -248,7 +268,7 @@ for fase in ["A", "B", "C"]:
                     row = df_dia_escolhido.iloc[st.session_state[f"index_{fase}"] - 1]
                     frequencia = row.get(colunas[fase]["frequencia"], 0)
                     fator_potencia = row.get(colunas[fase]["fator_de_potencia"], 0)
-                    consumo = row.get(colunas[fase]["consumo"], 0)
+                    consumo = dados_sessao["consumo"][-1]
                 else:
                     frequencia, fator_potencia, consumo = 0.0, 0.0, 0.0
             else:
@@ -469,6 +489,10 @@ if dia_escolhido == "Dia Atual":
         st.session_state["dia_max_demanda_historica"] = st.session_state["dia_atual"].strftime('%d/%m/%Y')
     
     demanda_maxima = demanda_maxima_dia_atual
+    
+    # Adiciona o consumo do dia atual (em tempo real) ao consumo acumulado
+    consumo_dia_atual = st.session_state["valores_A"]["consumo"][-1] - st.session_state["valores_A"]["consumo"][0] if len(st.session_state["valores_A"]["consumo"]) > 1 else 0
+    consumo_total_para_calculo = st.session_state["consumo_acumulado"] + consumo_dia_atual
 else: # Dia Anterior
     df_A = dfs["A"][dfs["A"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
     df_B = dfs["B"][dfs["B"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
@@ -488,14 +512,15 @@ else: # Dia Anterior
             demanda_maxima = 0.0
     else:
         demanda_maxima = 0.0
+    
+    # Consumo total do dia anterior (já está no acumulado, então não precisa adicionar de novo)
+    consumo_total_para_calculo = st.session_state["consumo_acumulado"]
 
-
-# --- CÁLCULO DA CONTA ESTIMADA DO DIA ATUAL EM TEMPO REAL ---
-total_consumo_kwh_realtime = sum(st.session_state["valores_A"]["potencia_ativa"]) / (1000 * 60) * 3 if st.session_state["valores_A"]["potencia_ativa"] else 0
+# --- CÁLCULO DA CONTA ESTIMADA (AGORA ACUMULADA) ---
 custo_bandeira_verde = TARIFAS["BANDEIRAS"]["Verde"]
-custo_base_realtime = total_consumo_kwh_realtime * (TARIFAS["TE"] + TARIFAS["TUSD"] + custo_bandeira_verde)
+custo_base_realtime = consumo_total_para_calculo * (TARIFAS["TE"] + TARIFAS["TUSD"] + custo_bandeira_verde)
 impostos_realtime = custo_base_realtime * (TARIFAS["ICMS"] + TARIFAS["PIS"] + TARIFAS["COFINS"])
-conta_estimada_realtime = custo_base_realtime + impostos_realtime
+conta_estimada_acumulada = custo_base_realtime + impostos_realtime
 
 
 st.markdown("<h3>Grandezas Totais e Demanda</h3>", unsafe_allow_html=True)
@@ -531,9 +556,9 @@ with col_conta:
             font-weight: bold;
             width: 100%;
         '>
-            Consumo Total (Dia Atual): {total_consumo_kwh_realtime:.2f} kWh
+            Consumo Acumulado: {consumo_total_para_calculo:.2f} kWh
             <br>
-            Valor Estimado (Dia Atual): R$ {conta_estimada_realtime:.2f}
+            Valor Estimado (acumulado): R$ {conta_estimada_acumulada:.2f}
         </div>
         <div style='
             background-color: #34495e;
