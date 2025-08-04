@@ -15,10 +15,10 @@ PATHS = {
 REFRESH_INTERVAL_MS = 500
 
 # --- LIMITES DE OPERAÇÃO ---
-TENSÃO_MIN = 200.0   # Volts
-TENSÃO_MAX = 250.0   # Volts
-CORRENTE_MAX = 50.0  # Amperes
-POTENCIA_APARENTE_MAX = 4500.0   # VA (por fase)
+TENSÃO_MIN = 200.0  # Volts
+TENSÃO_MAX = 250.0  # Volts
+CORRENTE_MAX = 50.0 # Amperes
+POTENCIA_APARENTE_MAX = 4500.0    # VA (por fase)
 POTENCIA_APARENTE_TOTAL_MAX = 12000.0 # VA (total)
 FREQUENCIA_MIN = 58.9 # Hz (para sistema 60Hz)
 FREQUENCIA_MAX = 62.0 # Hz (para sistema 60Hz)
@@ -437,7 +437,6 @@ with col_left:
 
 with col_right:
     st.button("Potência Aparente", on_click=lambda: st.session_state.update(grafico_selecionado="Potência Aparente"), use_container_width=True)
-    st.button("Potência Ativa Total", on_click=lambda: st.session_state.update(grafico_selecionado="Potência Ativa Total"), use_container_width=True) # NOVO BOTÃO
     st.button("Potência Aparente Total", on_click=lambda: st.session_state.update(grafico_selecionado="Potência Aparente Total"), use_container_width=True)
     st.button("Fator de Potência Total", on_click=lambda: st.session_state.update(grafico_selecionado="Fator de Potência Total"), use_container_width=True)
 
@@ -490,7 +489,7 @@ if grafico_selecionado in ["Tensão", "Corrente", "Potência Aparente"]:
                 line=dict(color=cores[fase])
             ))
 # Plotagem dos gráficos totais
-elif grafico_selecionado in ["Potência Ativa Total", "Potência Aparente Total", "Fator de Potência Total"]:
+elif grafico_selecionado in ["Potência Aparente Total", "Fator de Potência Total"]:
     if dia_escolhido == "Dia Atual":
         dados_A = st.session_state["valores_A"]
         dados_B = st.session_state["valores_B"]
@@ -506,8 +505,6 @@ elif grafico_selecionado in ["Potência Ativa Total", "Potência Aparente Total"
             elif grafico_selecionado == "Fator de Potência Total":
                 y_data = p_ativa_total / np.sqrt(p_ativa_total**2 + p_reativa_total**2)
                 y_data[np.isnan(y_data)] = 0
-            elif grafico_selecionado == "Potência Ativa Total": # NOVO CÁLCULO
-                y_data = p_ativa_total
             
             fig.add_trace(go.Scatter(x=x_values, y=y_data, mode='lines', name="Total", line=dict(color="#3498db")))
             plotted = True
@@ -526,8 +523,6 @@ elif grafico_selecionado in ["Potência Ativa Total", "Potência Aparente Total"
             elif grafico_selecionado == "Fator de Potência Total":
                 y_data = p_ativa_total / np.sqrt(p_ativa_total**2 + p_reativa_total**2)
                 y_data = y_data.fillna(0)
-            elif grafico_selecionado == "Potência Ativa Total": # NOVO CÁLCULO
-                y_data = p_ativa_total
             
             fig.add_trace(go.Scatter(x=x_values, y=y_data, mode='lines', name="Total", line=dict(color="#3498db")))
             plotted = True
@@ -539,14 +534,12 @@ if plotted:
     if grafico_selecionado == "Tensão":
         fig.update_layout(title="Tensão nas Fases", yaxis_title="Tensão (V)", yaxis=dict(range=[190, 250]))
     elif grafico_selecionado == "Corrente":
-        # ALTERAÇÃO SOLICITADA: Y-axis de 0 a 300
         fig.update_layout(title="Corrente nas Fases", yaxis_title="Corrente (A)", yaxis=dict(range=[0, 300]))
     elif grafico_selecionado == "Potência Aparente":
         fig.update_layout(title="Potência Aparente nas Fases", yaxis_title="Potência Aparente (VA)")
     elif grafico_selecionado == "Potência Aparente Total":
         fig.update_layout(title="Potência Aparente Total", yaxis_title="Potência Aparente (VA)", yaxis=dict(range=[0, 400000]))
     elif grafico_selecionado == "Fator de Potência Total":
-        # ALTERAÇÃO SOLICITADA: Y-axis de 0.6 a 1.0
         fig.update_layout(title="Fator de Potência Total", yaxis_title="Fator de Potência", yaxis=dict(range=[0.6, 1.0]))
 
     fig.update_layout(
@@ -574,5 +567,3 @@ with st.expander("Log de alarmes"):
             st.error(erro)
     else:
         st.info("Nenhum alarme registrado.")
-
-
