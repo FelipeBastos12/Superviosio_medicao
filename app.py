@@ -7,6 +7,7 @@ import numpy as np
 import collections
 
 # --- CONFIGURAÇÕES ---
+# O user subiu arquivos com '(3)' no nome. Assumimos que essa é a convenção
 PATHS = {
     "A": "Planilha_242_LAT - FASEA (3).csv",
     "B": "Planilha_242_LAT - FASEB (3).csv",
@@ -18,7 +19,7 @@ REFRESH_INTERVAL_MS = 500
 TENSÃO_MIN = 200.0  # Volts
 TENSÃO_MAX = 250.0  # Volts
 CORRENTE_MAX = 50.0 # Amperes
-POTENCIA_APARENTE_MAX = 4500.0    # VA (por fase)
+POTENCIA_APARENTE_MAX = 4500.0      # VA (por fase)
 POTENCIA_APARENTE_TOTAL_MAX = 12000.0 # VA (total)
 FREQUENCIA_MIN = 58.9 # Hz (para sistema 60Hz)
 FREQUENCIA_MAX = 62.0 # Hz (para sistema 60Hz)
@@ -64,7 +65,6 @@ colunas = {
 def load_and_clean_csv(path):
     try:
         df = pd.read_csv(path)
-        df = df[df["Data"] == "23/05/2025"].copy()
         
         if df.empty:
             return pd.DataFrame()
@@ -84,10 +84,32 @@ def load_and_clean_csv(path):
         st.error(f"Arquivo não encontrado: {path}")
         return pd.DataFrame()
 
-dfs = {fase: load_and_clean_csv(path) for fase, path in PATHS.items()}
+# Carregar os dados de todas as fases
+dfs_raw = {fase: load_and_clean_csv(path) for fase, path in PATHS.items()}
 
 # --- CONFIGURAÇÃO DE PÁGINA ---
 st.set_page_config(page_title="Supervisório LAT Trifásico", layout="wide")
+
+# --- LÓGICA DE SELEÇÃO DE DATA DINÂMICA ---
+# Encontrar a data mais recente nos dados, se houver
+combined_timestamps = pd.concat([df['Timestamp'] for df in dfs_raw.values() if not df.empty])
+unique_dates = sorted(combined_timestamps.dt.floor('D').unique(), reverse=True)
+
+if not unique_dates:
+    st.error("Não há dados para exibir. Por favor, verifique os arquivos CSV.")
+    st.stop()
+
+# Define o dia atual e anterior com base nos dados disponíveis
+dia_atual_ts = unique_dates[0]
+dia_anterior_ts = unique_dates[1] if len(unique_dates) > 1 else unique_dates[0]
+
+# Cria os dataframes filtrados para o dia atual e anterior
+dfs = {}
+for fase, df_raw in dfs_raw.items():
+    if not df_raw.empty:
+        dfs[fase] = df_raw
+    else:
+        dfs[fase] = pd.DataFrame()
 
 # --- AUTOREFRESH (agora sempre ativo) ---
 st_autorefresh(interval=REFRESH_INTERVAL_MS, limit=None, key="auto_refresh")
@@ -121,10 +143,11 @@ with col_titulo:
 
 # --- FUNÇÃO PARA ATUALIZAR DADOS DO DIA ATUAL (sempre ativa) ---
 def atualizar_dados_dia_atual(fase, df):
-    if df.empty:
+    df_dia_atual = df[df['Timestamp'].dt.date == dia_atual_ts.date()]
+    if df_dia_atual.empty:
         return
     
-    if st.session_state[f"index_{fase}"] >= len(df):
+    if st.session_state[f"index_{fase}"] >= len(df_dia_atual):
         st.session_state[f"index_{fase}"] = 0
         st.session_state[f"valores_{fase}"]["tensao"] = []
         st.session_state[f"valores_{fase}"]["corrente"] = []
@@ -134,7 +157,7 @@ def atualizar_dados_dia_atual(fase, df):
         st.session_state[f"valores_{fase}"]["potencia_reativa"] = []
         
     idx = st.session_state[f"index_{fase}"]
-    row = df.iloc[idx]
+    row = df_dia_atual.iloc[idx]
     st.session_state[f"index_{fase}"] += 1
 
     tensao = row.get(colunas[fase]["tensao"], None)
@@ -167,7 +190,11 @@ for fase in ["A", "B", "C"]:
     atualizar_dados_dia_atual(fase, dfs[fase])
 
 # --- SELETOR DE DIA ---
-dia_escolhido = st.radio("Selecionar dia para visualização:", ("Dia Atual", "Dia Anterior"))
+dia_escolhido_str = st.radio("Selecionar dia para visualização:", (dia_atual_ts.strftime('%d/%m/%Y') + " (Dia Atual)", dia_anterior_ts.strftime('%d/%m/%Y') + " (Dia Anterior)"))
+if dia_escolhido_str.endswith(" (Dia Atual)"):
+    dia_escolhido = dia_atual_ts.date()
+else:
+    dia_escolhido = dia_anterior_ts.date()
 
 # --- PEGANDO VALORES PARA EXIBIÇÃO ---
 valores_tensao = {}
@@ -181,12 +208,13 @@ valores_potencia_reativa = {}
 
 for fase in ["A", "B", "C"]:
     df = dfs[fase]
+    df_filtrado = df[df['Timestamp'].dt.date == dia_escolhido]
     
-    if df.empty:
+    if df_filtrado.empty:
         tensao, corrente, potencia, frequencia, fator_potencia, consumo = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
         potencia_ativa, potencia_reativa = 0.0, 0.0
     else:
-        if dia_escolhido == "Dia Atual":
+        if dia_escolhido == dia_atual_ts.date():
             dados_sessao = st.session_state[f"valores_{fase}"]
             if dados_sessao["timestamp"]:
                 last_idx = len(dados_sessao["timestamp"]) - 1
@@ -195,7 +223,7 @@ for fase in ["A", "B", "C"]:
                 potencia = dados_sessao["potencia"][last_idx]
                 potencia_ativa = dados_sessao["potencia_ativa"][last_idx]
                 potencia_reativa = dados_sessao["potencia_reativa"][last_idx]
-                row = df.iloc[st.session_state[f"index_{fase}"] - 1]
+                row = df_filtrado.iloc[len(dados_sessao["timestamp"]) - 1]
                 frequencia = row.get(colunas[fase]["frequencia"], 0)
                 fator_potencia = row.get(colunas[fase]["fator_de_potencia"], 0)
                 consumo = row.get(colunas[fase]["consumo"], 0)
@@ -203,7 +231,7 @@ for fase in ["A", "B", "C"]:
                 tensao, corrente, potencia, frequencia, fator_potencia, consumo = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
                 potencia_ativa, potencia_reativa = 0.0, 0.0
         else:  # Dia Anterior
-            row = df.iloc[-1]
+            row = df_filtrado.iloc[-1]
             tensao = row[colunas[fase]["tensao"]]
             corrente = row[colunas[fase]["corrente"]]
             potencia = row[colunas[fase]["potencia"]]
@@ -223,7 +251,7 @@ for fase in ["A", "B", "C"]:
     valores_potencia_reativa[fase] = float(potencia_reativa)
 
 # Obtém o timestamp do último dado para usar no log
-timestamp_ultimo_dado = st.session_state["valores_A"]["timestamp"][-1] if st.session_state["valores_A"]["timestamp"] else datetime.now()
+timestamp_ultimo_dado = st.session_state["valores_A"]["timestamp"][-1] if st.session_state["valores_A"]["timestamp"] and dia_escolhido == dia_atual_ts.date() else datetime.now()
 
 
 # --- VISOR PERSONALIZADO ---
@@ -327,244 +355,4 @@ def visor_total(label, valor_total, unidade, timestamp_erro, limite_superior=Non
     
     alarme_acionado = False
     
-    cor_texto_default = "#2ecc71"
-    cor_texto_alerta = "#c0392b"
-    cor_texto_atual = cor_texto_default
-
-    if limite_superior is not None and valor_total > limite_superior:
-        alarme_acionado = True
-    if limite_inferior is not None and valor_total < limite_inferior:
-        alarme_acionado = True
-    
-    if alarme_acionado:
-        cor_fundo_atual = cor_fundo_alerta
-        cor_texto_atual = cor_texto_alerta
-        st.session_state["log_erros"].append(f"[{timestamp_erro.strftime('%H:%M:%S')}] ALARME Total de {label}: {valor_total:.2f} {unidade}")
-
-    st.markdown(f"""
-    <div style='
-        background-color: {cor_fundo_atual};
-        padding: 15px;
-        border-radius: 15px;
-        margin-bottom: 15px;
-    '>
-        <h3 style='color:white; text-align:center;'>{label}</h3>
-        <div style='
-            background-color: #34495e;
-            color: {cor_texto_atual};
-            padding: 15px;
-            border-radius: 10px;
-            text-align: center;
-            font-size: 20px;
-            font-weight: bold;
-            width: 100%;
-        '>
-            Total: {valor_total:.2f} {unidade}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-# --- EXIBIÇÃO AGRUPADA EM GRADE (3 colunas, depois 3 colunas) ---
-st.markdown("<h3>Grandezas por Fase</h3>", unsafe_allow_html=True)
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    visor_fases("Tensão", valores_tensao, "V", timestamp_ultimo_dado)
-with col2:
-    visor_fases("Corrente", valores_corrente, "A", timestamp_ultimo_dado)
-with col3:
-    visor_fases("Frequência", valores_frequencia, "Hz", timestamp_ultimo_dado)
-
-col4, col5, col6 = st.columns(3)
-
-with col4:
-    visor_fases("Potência Aparente", valores_potencia, "VA", timestamp_ultimo_dado)
-with col5:
-    visor_fases("Fator de Potência", valores_fator_potencia, "", timestamp_ultimo_dado)
-with col6:
-    visor_fases("Consumo", valores_consumo, "kWh", timestamp_ultimo_dado)
-
-
-# --- CÁLCULOS DOS VALORES TOTAIS E DEMANDA ---
-P_total_inst = sum(valores_potencia_ativa.values())
-Q_total_inst = sum(valores_potencia_reativa.values())
-S_total_inst = np.sqrt(P_total_inst**2 + Q_total_inst**2)
-FP_total_inst = P_total_inst / S_total_inst if S_total_inst != 0 else 0
-
-# Para demanda, vamos calcular a média móvel da potência ativa total
-demand_window = 5 # 5 pontos de 3min = 15 minutos
-if dia_escolhido == "Dia Atual":
-    potencia_ativa_faseA = st.session_state["valores_A"]["potencia_ativa"]
-    potencia_ativa_faseB = st.session_state["valores_B"]["potencia_ativa"]
-    potencia_ativa_faseC = st.session_state["valores_C"]["potencia_ativa"]
-    
-    if len(potencia_ativa_faseA) >= demand_window:
-        total_potencia_ativa_historico = [sum(p) for p in zip(potencia_ativa_faseA, potencia_ativa_faseB, potencia_ativa_faseC)]
-        total_series = pd.Series(total_potencia_ativa_historico)
-        demanda_maxima = total_series.rolling(window=demand_window).mean().max()
-    else:
-        demanda_maxima = 0.0
-else: # Dia Anterior
-    potencia_ativa_faseA = dfs["A"][colunas["A"]["potencia_ativa"]]
-    potencia_ativa_faseB = dfs["B"][colunas["B"]["potencia_ativa"]]
-    potencia_ativa_faseC = dfs["C"][colunas["C"]["potencia_ativa"]]
-
-    if not potencia_ativa_faseA.empty and len(potencia_ativa_faseA) >= demand_window:
-        total_potencia_ativa_historico = potencia_ativa_faseA.add(potencia_ativa_faseB, fill_value=0).add(potencia_ativa_faseC, fill_value=0)
-        demanda_maxima = total_potencia_ativa_historico.rolling(window=demand_window).mean().max()
-    else:
-        demanda_maxima = 0.0
-
-st.markdown("<h3>Grandezas Totais e Demanda</h3>", unsafe_allow_html=True)
-col7, col8, col9 = st.columns(3)
-
-with col7:
-    visor_total("Potência Aparente Total", S_total_inst, "VA", timestamp_ultimo_dado, limite_superior=POTENCIA_APARENTE_TOTAL_MAX)
-with col8:
-    visor_total("Fator de Potência Total", FP_total_inst, "", timestamp_ultimo_dado, limite_inferior=FATOR_POTENCIA_MIN)
-with col9:
-    visor_total("Demanda Máxima", demanda_maxima, "W", timestamp_ultimo_dado, limite_superior=DEMANDA_MAXIMA)
-
-
-# --- GRÁFICOS DINÂMICOS ---
-st.markdown("<h3>Selecione o Gráfico</h3>", unsafe_allow_html=True)
-col_left, col_right = st.columns([2, 3])
-
-with col_left:
-    st.button("Tensão", on_click=lambda: st.session_state.update(grafico_selecionado="Tensão"), use_container_width=True)
-    st.button("Corrente", on_click=lambda: st.session_state.update(grafico_selecionado="Corrente"), use_container_width=True)
-
-with col_right:
-    st.button("Potência Aparente", on_click=lambda: st.session_state.update(grafico_selecionado="Potência Aparente"), use_container_width=True)
-    st.button("Potência Aparente Total", on_click=lambda: st.session_state.update(grafico_selecionado="Potência Aparente Total"), use_container_width=True)
-    st.button("Fator de Potência Total", on_click=lambda: st.session_state.update(grafico_selecionado="Fator de Potência Total"), use_container_width=True)
-
-grafico_selecionado = st.session_state.get("grafico_selecionado", "Tensão")
-
-fig = go.Figure()
-cores = {"A": "#2980b9", "B": "#e67e22", "C": "#27ae60"}
-
-grafico_key_map = {
-    "Tensão": "tensao",
-    "Corrente": "corrente",
-    "Potência Aparente": "potencia"
-}
-
-plotted = False
-
-# Plotagem dos gráficos por fase
-if grafico_selecionado in ["Tensão", "Corrente", "Potência Aparente"]:
-    for fase in ["A", "B", "C"]:
-        if dia_escolhido == "Dia Atual":
-            dados = st.session_state[f"valores_{fase}"]
-            x_values = dados.get("timestamp", [])
-            y_key = grafico_key_map.get(grafico_selecionado)
-            if y_key and dados.get(y_key):
-                y_data = dados[y_key]
-                modo = "lines"
-                plotted = True
-            else:
-                continue
-        else: # Dia Anterior
-            df = dfs[fase]
-            if not df.empty:
-                y_key = grafico_key_map.get(grafico_selecionado)
-                if y_key:
-                    x_values = df["Timestamp"].tolist()
-                    y_data = df[colunas[fase][y_key]].tolist()
-                    modo = "lines"
-                    plotted = True
-                else:
-                    continue
-            else:
-                continue
-
-        if plotted:
-            fig.add_trace(go.Scatter(
-                x=x_values,
-                y=y_data,
-                mode=modo,
-                name=f"Fase {fase}",
-                line=dict(color=cores[fase])
-            ))
-# Plotagem dos gráficos totais
-elif grafico_selecionado in ["Potência Aparente Total", "Fator de Potência Total"]:
-    if dia_escolhido == "Dia Atual":
-        dados_A = st.session_state["valores_A"]
-        dados_B = st.session_state["valores_B"]
-        dados_C = st.session_state["valores_C"]
-        
-        if dados_A["timestamp"] and dados_B["timestamp"] and dados_C["timestamp"]:
-            x_values = dados_A["timestamp"]
-            p_ativa_total = np.array(dados_A["potencia_ativa"]) + np.array(dados_B["potencia_ativa"]) + np.array(dados_C["potencia_ativa"])
-            p_reativa_total = np.array(dados_A["potencia_reativa"]) + np.array(dados_B["potencia_reativa"]) + np.array(dados_C["potencia_reativa"])
-            
-            if grafico_selecionado == "Potência Aparente Total":
-                y_data = np.sqrt(p_ativa_total**2 + p_reativa_total**2)
-            elif grafico_selecionado == "Fator de Potência Total":
-                y_data = p_ativa_total / np.sqrt(p_ativa_total**2 + p_reativa_total**2)
-                y_data[np.isnan(y_data)] = 0
-            
-            fig.add_trace(go.Scatter(x=x_values, y=y_data, mode='lines', name="Total", line=dict(color="#3498db")))
-            plotted = True
-    else: # Dia Anterior
-        df_A = dfs["A"]
-        df_B = dfs["B"]
-        df_C = dfs["C"]
-        
-        if not df_A.empty and not df_B.empty and not df_C.empty:
-            x_values = df_A["Timestamp"]
-            p_ativa_total = df_A[colunas["A"]["potencia_ativa"]].add(df_B[colunas["B"]["potencia_ativa"]], fill_value=0).add(df_C[colunas["C"]["potencia_ativa"]], fill_value=0)
-            p_reativa_total = df_A[colunas["A"]["potencia_reativa"]].add(df_B[colunas["B"]["potencia_reativa"]], fill_value=0).add(df_C[colunas["C"]["potencia_reativa"]], fill_value=0)
-            
-            if grafico_selecionado == "Potência Aparente Total":
-                y_data = np.sqrt(p_ativa_total**2 + p_reativa_total**2)
-            elif grafico_selecionado == "Fator de Potência Total":
-                y_data = p_ativa_total / np.sqrt(p_ativa_total**2 + p_reativa_total**2)
-                y_data = y_data.fillna(0)
-            
-            fig.add_trace(go.Scatter(x=x_values, y=y_data, mode='lines', name="Total", line=dict(color="#3498db")))
-            plotted = True
-
-
-if plotted:
-    date_23_05 = datetime(2025, 5, 23)
-    
-    if grafico_selecionado == "Tensão":
-        fig.update_layout(title="Tensão nas Fases", yaxis_title="Tensão (V)", yaxis=dict(range=[190, 250]))
-    elif grafico_selecionado == "Corrente":
-        fig.update_layout(title="Corrente nas Fases", yaxis_title="Corrente (A)", yaxis=dict(range=[0, 300]))
-    elif grafico_selecionado == "Potência Aparente":
-        fig.update_layout(title="Potência Aparente nas Fases", yaxis_title="Potência Aparente (VA)")
-    elif grafico_selecionado == "Potência Aparente Total":
-        fig.update_layout(title="Potência Aparente Total", yaxis_title="Potência Aparente (VA)", yaxis=dict(range=[0, 400000]))
-    elif grafico_selecionado == "Fator de Potência Total":
-        fig.update_layout(title="Fator de Potência Total", yaxis_title="Fator de Potência", yaxis=dict(range=[0.6, 1.0]))
-
-    fig.update_layout(
-        xaxis_title="Horário",
-        xaxis_tickformat='%H:%M',
-        xaxis=dict(
-            tickmode='array',
-            tickvals=[date_23_05 + timedelta(hours=h) for h in range(25)],
-            ticktext=[f'{h:02d}:00' for h in range(25)],
-            range=[date_23_05, date_23_05 + timedelta(days=1)],
-            showgrid=True,
-            gridcolor='rgba(128,128,128,0.2)'
-        ),
-        height=450,
-        template="simple_white"
-    )
-    st.plotly_chart(fig, use_container_width=True)
-else:
-    st.warning(f"Não há dados para exibir no gráfico de {grafico_selecionado}.")
-
-# --- LOG DE ERROS (agora em um expander) ---
-with st.expander("Log de alarmes"):
-    if st.session_state["log_erros"]:
-        for erro in reversed(st.session_state["log_erros"]):
-            st.error(erro)
-    else:
-        st.info("Nenhum alarme registrado.")
-
+    cor_texto_
