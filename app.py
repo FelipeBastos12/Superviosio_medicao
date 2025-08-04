@@ -17,7 +17,7 @@ REFRESH_INTERVAL_MS = 500
 # --- LIMITES DE OPERAÇÃO ---
 TENSÃO_MIN = 200.0  # Volts
 TENSÃO_MAX = 250.0  # Volts
-CORRENTE_MAX = 20.0  # Amperes
+CORRENTE_MAX = 1.0  # Amperes
 POTENCIA_APARENTE_MAX = 4500.0  # VA (por fase)
 POTENCIA_APARENTE_TOTAL_MAX = 12000.0 # VA (total)
 FREQUENCIA_MIN = 59.5 # Hz (para sistema 60Hz)
@@ -563,3 +563,4 @@ if st.session_state["log_erros"]:
         st.error(erro)
 else:
     st.info("Nenhum alarme registrado.")
+
