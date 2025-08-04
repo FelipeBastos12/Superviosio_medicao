@@ -12,7 +12,7 @@ PATHS = {
     "B": "Planilha_242_LAT - FASEB (3).csv",
     "C": "Planilha_242_LAT - FASEC (3).csv"
 }
-REFRESH_INTERVAL_MS = 500
+REFRESH_INTERVAL_MS = 1000
 
 # --- LIMITES DE OPERAÇÃO ---
 TENSÃO_MIN = 200.0     # Volts
@@ -737,3 +737,4 @@ with st.expander("Log de alarmes"):
             st.error(erro)
     else:
         st.info("Nenhum alarme registrado.")
+
