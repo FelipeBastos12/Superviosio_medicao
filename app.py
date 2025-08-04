@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import plotly.graph_objs as go
@@ -12,14 +13,13 @@ PATHS = {
     "B": "Planilha_242_LAT - FASEB (3).csv",
     "C": "Planilha_242_LAT - FASEC (3).csv"
 }
-# --- MUDANÇA: Intervalo de refresh para 100ms
-REFRESH_INTERVAL_MS = 100
+REFRESH_INTERVAL_MS = 500
 
 # --- LIMITES DE OPERAÇÃO ---
-TENSÃO_MIN = 200.0   # Volts
-TENSÃO_MAX = 250.0   # Volts
-CORRENTE_MAX = 50.0  # Amperes
-POTENCIA_APARENTE_MAX = 4500.0      # VA (por fase)
+TENSÃO_MIN = 200.0  # Volts
+TENSÃO_MAX = 250.0  # Volts
+CORRENTE_MAX = 50.0 # Amperes
+POTENCIA_APARENTE_MAX = 4500.0    # VA (por fase)
 POTENCIA_APARENTE_TOTAL_MAX = 12000.0 # VA (total)
 FREQUENCIA_MIN = 58.9 # Hz (para sistema 60Hz)
 FREQUENCIA_MAX = 62.0 # Hz (para sistema 60Hz)
@@ -65,9 +65,7 @@ colunas = {
 def load_and_clean_csv(path):
     try:
         df = pd.read_csv(path)
-        # O filtro inicial de data é removido aqui, pois a lógica de avanço de data
-        # será tratada pelo `session_state`.
-        # df = df[df["Data"] == "01/08/2025"].copy()
+        df = df[df["Data"] == "01/08/2025"].copy()
         
         if df.empty:
             return pd.DataFrame()
@@ -96,12 +94,6 @@ st.set_page_config(page_title="Supervisório LAT Trifásico", layout="wide")
 st_autorefresh(interval=REFRESH_INTERVAL_MS, limit=None, key="auto_refresh")
 
 # --- INICIALIZAÇÃO DE SESSION STATE ---
-# --- MUDANÇA: Adiciona as datas iniciais no session_state
-if "dia_anterior" not in st.session_state:
-    st.session_state["dia_anterior"] = datetime(2025, 8, 1).date()
-if "dia_atual" not in st.session_state:
-    st.session_state["dia_atual"] = datetime(2025, 8, 2).date()
-    
 for fase in ["A", "B", "C"]:
     if f"index_{fase}" not in st.session_state:
         st.session_state[f"index_{fase}"] = 0
@@ -133,25 +125,7 @@ def atualizar_dados_dia_atual(fase, df):
     if df.empty:
         return
     
-    # --- MUDANÇA: Filtra o DataFrame apenas para o dia atual do session_state
-    df_dia_atual = df[df["Timestamp"].dt.date == st.session_state["dia_atual"]]
-    
-    if df_dia_atual.empty:
-        return
-        
-    if st.session_state[f"index_{fase}"] >= len(df_dia_atual):
-        # --- MUDANÇA: Lógica de avanço de dia
-        if fase == "C": # Avança a data apenas uma vez por ciclo completo de leitura
-            st.session_state["dia_anterior"] = st.session_state["dia_atual"]
-            st.session_state["dia_atual"] += timedelta(days=1)
-            # Re-filtra o dataframe para o novo dia
-            df_dia_atual = df[df["Timestamp"].dt.date == st.session_state["dia_atual"]]
-            # Se o novo dia não existir, para o ciclo e volta para o primeiro dia disponível no CSV
-            if df_dia_atual.empty:
-                st.session_state["dia_anterior"] = df["Timestamp"].min().date()
-                st.session_state["dia_atual"] = df["Timestamp"].min().date() + timedelta(days=1)
-                df_dia_atual = df[df["Timestamp"].dt.date == st.session_state["dia_atual"]]
-
+    if st.session_state[f"index_{fase}"] >= len(df):
         st.session_state[f"index_{fase}"] = 0
         st.session_state[f"valores_{fase}"]["tensao"] = []
         st.session_state[f"valores_{fase}"]["corrente"] = []
@@ -161,7 +135,7 @@ def atualizar_dados_dia_atual(fase, df):
         st.session_state[f"valores_{fase}"]["potencia_reativa"] = []
         
     idx = st.session_state[f"index_{fase}"]
-    row = df_dia_atual.iloc[idx]
+    row = df.iloc[idx]
     st.session_state[f"index_{fase}"] += 1
 
     tensao = row.get(colunas[fase]["tensao"], None)
@@ -192,10 +166,6 @@ def atualizar_dados_dia_atual(fase, df):
 # --- ATUALIZANDO DADOS DO DIA ATUAL EM TODAS AS FASES ---
 for fase in ["A", "B", "C"]:
     atualizar_dados_dia_atual(fase, dfs[fase])
-    
-# --- MUDANÇA: Exibe as datas de forma dinâmica
-st.markdown(f"**Visualizando dados do:**<br/>- **Dia Atual:** {st.session_state['dia_atual'].strftime('%d/%m/%Y')}<br/>- **Dia Anterior:** {st.session_state['dia_anterior'].strftime('%d/%m/%Y')}", unsafe_allow_html=True)
-st.markdown("---")
 
 # --- SELETOR DE DIA ---
 dia_escolhido = st.radio("Selecionar dia para visualização:", ("Dia Atual", "Dia Anterior"))
@@ -218,19 +188,15 @@ for fase in ["A", "B", "C"]:
         potencia_ativa, potencia_reativa = 0.0, 0.0
     else:
         if dia_escolhido == "Dia Atual":
-            # --- MUDANÇA: Filtra o dataframe para o dia escolhido (Dia Atual)
-            df_dia_escolhido = df[df["Timestamp"].dt.date == st.session_state["dia_atual"]]
             dados_sessao = st.session_state[f"valores_{fase}"]
-            if dados_sessao["timestamp"] and not df_dia_escolhido.empty:
+            if dados_sessao["timestamp"]:
                 last_idx = len(dados_sessao["timestamp"]) - 1
                 tensao = dados_sessao["tensao"][last_idx]
                 corrente = dados_sessao["corrente"][last_idx]
                 potencia = dados_sessao["potencia"][last_idx]
                 potencia_ativa = dados_sessao["potencia_ativa"][last_idx]
                 potencia_reativa = dados_sessao["potencia_reativa"][last_idx]
-                # A row do dia atual pode não existir no dataframe completo, então usamos a do df_dia_escolhido
-                # O índice do session state corresponde ao índice no df_dia_atual.
-                row = df_dia_escolhido.iloc[st.session_state[f"index_{fase}"] - 1] 
+                row = df.iloc[st.session_state[f"index_{fase}"] - 1]
                 frequencia = row.get(colunas[fase]["frequencia"], 0)
                 fator_potencia = row.get(colunas[fase]["fator_de_potencia"], 0)
                 consumo = row.get(colunas[fase]["consumo"], 0)
@@ -238,21 +204,15 @@ for fase in ["A", "B", "C"]:
                 tensao, corrente, potencia, frequencia, fator_potencia, consumo = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
                 potencia_ativa, potencia_reativa = 0.0, 0.0
         else:  # Dia Anterior
-            # --- MUDANÇA: Filtra o dataframe para o dia anterior do session_state
-            df_dia_escolhido = df[df["Timestamp"].dt.date == st.session_state["dia_anterior"]]
-            if not df_dia_escolhido.empty:
-                row = df_dia_escolhido.iloc[-1]
-                tensao = row[colunas[fase]["tensao"]]
-                corrente = row[colunas[fase]["corrente"]]
-                potencia = row[colunas[fase]["potencia"]]
-                frequencia = row[colunas[fase]["frequencia"]]
-                fator_potencia = row[colunas[fase]["fator_de_potencia"]]
-                consumo = row[colunas[fase]["consumo"]]
-                potencia_ativa = row[colunas[fase]["potencia_ativa"]]
-                potencia_reativa = row[colunas[fase]["potencia_reativa"]]
-            else:
-                tensao, corrente, potencia, frequencia, fator_potencia, consumo = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
-                potencia_ativa, potencia_reativa = 0.0, 0.0
+            row = df.iloc[-1]
+            tensao = row[colunas[fase]["tensao"]]
+            corrente = row[colunas[fase]["corrente"]]
+            potencia = row[colunas[fase]["potencia"]]
+            frequencia = row[colunas[fase]["frequencia"]]
+            fator_potencia = row[colunas[fase]["fator_de_potencia"]]
+            consumo = row[colunas[fase]["consumo"]]
+            potencia_ativa = row[colunas[fase]["potencia_ativa"]]
+            potencia_reativa = row[colunas[fase]["potencia_reativa"]]
 
     valores_tensao[fase] = float(tensao)
     valores_corrente[fase] = float(corrente)
@@ -447,13 +407,12 @@ if dia_escolhido == "Dia Atual":
     else:
         demanda_maxima = 0.0
 else: # Dia Anterior
-    # --- MUDANÇA: Filtra o dataframe para o dia anterior
-    df_A = dfs["A"][dfs["A"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
-    df_B = dfs["B"][dfs["B"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
-    df_C = dfs["C"][dfs["C"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
-    
-    if not df_A.empty and len(df_A) >= demand_window:
-        total_potencia_ativa_historico = df_A[colunas["A"]["potencia_ativa"]].add(df_B[colunas["B"]["potencia_ativa"]], fill_value=0).add(df_C[colunas["C"]["potencia_ativa"]], fill_value=0)
+    potencia_ativa_faseA = dfs["A"][colunas["A"]["potencia_ativa"]]
+    potencia_ativa_faseB = dfs["B"][colunas["B"]["potencia_ativa"]]
+    potencia_ativa_faseC = dfs["C"][colunas["C"]["potencia_ativa"]]
+
+    if not potencia_ativa_faseA.empty and len(potencia_ativa_faseA) >= demand_window:
+        total_potencia_ativa_historico = potencia_ativa_faseA.add(potencia_ativa_faseB, fill_value=0).add(potencia_ativa_faseC, fill_value=0)
         demanda_maxima = total_potencia_ativa_historico.rolling(window=demand_window).mean().max()
     else:
         demanda_maxima = 0.0
@@ -509,13 +468,12 @@ if grafico_selecionado in ["Tensão", "Corrente", "Potência Aparente"]:
             else:
                 continue
         else: # Dia Anterior
-            # --- MUDANÇA: Filtra o dataframe para o dia anterior
-            df_dia_anterior = dfs[fase][dfs[fase]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
-            if not df_dia_anterior.empty:
+            df = dfs[fase]
+            if not df.empty:
                 y_key = grafico_key_map.get(grafico_selecionado)
                 if y_key:
-                    x_values = df_dia_anterior["Timestamp"].tolist()
-                    y_data = df_dia_anterior[colunas[fase][y_key]].tolist()
+                    x_values = df["Timestamp"].tolist()
+                    y_data = df[colunas[fase][y_key]].tolist()
                     modo = "lines"
                     plotted = True
                 else:
@@ -552,10 +510,9 @@ elif grafico_selecionado in ["Potência Aparente Total", "Fator de Potência Tot
             fig.add_trace(go.Scatter(x=x_values, y=y_data, mode='lines', name="Total", line=dict(color="#3498db")))
             plotted = True
     else: # Dia Anterior
-        # --- MUDANÇA: Filtra os dataframes para o dia anterior
-        df_A = dfs["A"][dfs["A"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
-        df_B = dfs["B"][dfs["B"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
-        df_C = dfs["C"][dfs["C"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
+        df_A = dfs["A"]
+        df_B = dfs["B"]
+        df_C = dfs["C"]
         
         if not df_A.empty and not df_B.empty and not df_C.empty:
             x_values = df_A["Timestamp"]
@@ -573,13 +530,7 @@ elif grafico_selecionado in ["Potência Aparente Total", "Fator de Potência Tot
 
 
 if plotted:
-    # --- MUDANÇA: Atualiza o range do eixo X para o dia selecionado
-    if dia_escolhido == "Dia Atual":
-        date_start = datetime.combine(st.session_state["dia_atual"], datetime.min.time())
-    else:
-        date_start = datetime.combine(st.session_state["dia_anterior"], datetime.min.time())
-
-    date_end = date_start + timedelta(days=1)
+    date_23_05 = datetime(2025, 8, 1)
     
     if grafico_selecionado == "Tensão":
         fig.update_layout(title="Tensão nas Fases", yaxis_title="Tensão (V)", yaxis=dict(range=[190, 250]))
@@ -597,9 +548,9 @@ if plotted:
         xaxis_tickformat='%H:%M',
         xaxis=dict(
             tickmode='array',
-            tickvals=[date_start + timedelta(hours=h) for h in range(25)],
+            tickvals=[date_23_05 + timedelta(hours=h) for h in range(25)],
             ticktext=[f'{h:02d}:00' for h in range(25)],
-            range=[date_start, date_end],
+            range=[date_23_05, date_23_05 + timedelta(days=1)],
             showgrid=True,
             gridcolor='rgba(128,128,128,0.2)'
         ),
@@ -608,7 +559,7 @@ if plotted:
     )
     st.plotly_chart(fig, use_container_width=True)
 else:
-    st.warning(f"Não há dados para exibir no gráfico de {grafico_selecionado} para o dia selecionado.")
+    st.warning(f"Não há dados para exibir no gráfico de {grafico_selecionado}.")
 
 # --- LOG DE ERROS (agora em um expander) ---
 with st.expander("Log de alarmes"):
@@ -617,3 +568,4 @@ with st.expander("Log de alarmes"):
             st.error(erro)
     else:
         st.info("Nenhum alarme registrado.")
+
