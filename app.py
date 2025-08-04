@@ -13,7 +13,7 @@ PATHS = {
     "C": "Planilha_242_LAT - FASEC (3).csv"
 }
 # --- MUDANÇA: Intervalo de refresh para 100ms
-REFRESH_INTERVAL_MS = 100
+REFRESH_INTERVAL_MS = 500
 
 # --- LIMITES DE OPERAÇÃO ---
 TENSÃO_MIN = 200.0   # Volts
@@ -621,3 +621,4 @@ with st.expander("Log de alarmes"):
             st.error(erro)
     else:
         st.info("Nenhum alarme registrado.")
+
