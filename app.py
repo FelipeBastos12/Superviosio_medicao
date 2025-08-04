@@ -575,7 +575,7 @@ with col_conta:
         border-radius: 15px;
         margin-bottom: 15px;
     '>
-   # <h3 style='color:white; text-align:center;'>Análise de Custos e Demanda</h3>
+   <h3 style='color:white; text-align:center;'></h3>
         <div style='
             background-color: #34495e;
             color: #2ecc71;
@@ -762,6 +762,7 @@ with st.expander("Log de alarmes"):
             st.error(erro)
     else:
         st.info("Nenhum alarme registrado.")
+
 
 
 
