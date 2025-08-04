@@ -15,8 +15,8 @@ PATHS = {
 REFRESH_INTERVAL_MS = 500
 
 # --- LIMITES DE OPERAÇÃO ---
-TENSÃO_MIN = 200.0   # Volts
-TENSÃO_MAX = 250.0   # Volts
+TENSÃO_MIN = 200.0    # Volts
+TENSÃO_MAX = 250.0    # Volts
 CORRENTE_MAX = 50.0  # Amperes
 POTENCIA_APARENTE_MAX = 4500.0      # VA (por fase)
 POTENCIA_APARENTE_TOTAL_MAX = 12000.0 # VA (total)
@@ -24,6 +24,22 @@ FREQUENCIA_MIN = 58.9 # Hz (para sistema 60Hz)
 FREQUENCIA_MAX = 62.0 # Hz (para sistema 60Hz)
 FATOR_POTENCIA_MIN = 0.85 # Mínimo recomendado
 DEMANDA_MAXIMA = 10000.0 # Exemplo de limite de demanda máxima (W)
+
+# --- TARIFAS BRASILEIRAS (EXEMPLO) ---
+TARIFAS = {
+    "TE": 0.60, # Tarifa de Energia (R$/kWh)
+    "TUSD": 0.40, # Tarifa de Uso do Sistema de Distribuição (R$/kWh)
+    "ICMS": 0.25, # Imposto sobre Circulação de Mercadorias e Serviços (%)
+    "PIS": 0.0165, # Programa de Integração Social (%)
+    "COFINS": 0.076, # Contribuição para o Financiamento da Seguridade Social (%)
+    "BANDEIRAS": {
+        "Verde": 0.00,
+        "Amarela": 0.02, # Exemplo de custo extra por kWh
+        "Vermelha 1": 0.05,
+        "Vermelha 2": 0.08,
+    }
+}
+
 
 # --- NOMES DAS COLUNAS POR FASE ---
 colunas = {
@@ -468,6 +484,107 @@ with col8:
     visor_total("Fator de Potência Total", FP_total_inst, "", timestamp_ultimo_dado, limite_inferior=FATOR_POTENCIA_MIN)
 with col9:
     visor_total("Demanda Máxima", demanda_maxima, "W", timestamp_ultimo_dado, limite_superior=DEMANDA_MAXIMA)
+
+
+# --- ADICIONANDO VISORES DE MAIOR DEMANDA E CONTA DE ENERGIA ---
+
+# --- CÁLCULO DA MAIOR DEMANDA DIÁRIA DO HISTÓRICO ---
+maior_demanda_historico = 0.0
+dia_maior_demanda = "N/A"
+
+# Verificando se há dados para todas as fases
+if not dfs["A"].empty and not dfs["B"].empty and not dfs["C"].empty:
+    df_combined = pd.DataFrame()
+    df_combined["Timestamp"] = dfs["A"]["Timestamp"]
+    df_combined["Potencia_Ativa_Total"] = dfs["A"][colunas["A"]["potencia_ativa"]] + dfs["B"][colunas["B"]["potencia_ativa"]] + dfs["C"][colunas["C"]["potencia_ativa"]]
+    
+    total_series_historico = df_combined.set_index("Timestamp")["Potencia_Ativa_Total"]
+    total_demand_historico = total_series_historico.rolling(window=demand_window).mean()
+    
+    if not total_demand_historico.empty:
+        max_demand_point = total_demand_historico.idxmax()
+        maior_demanda_historico = total_demand_historico.max()
+        dia_maior_demanda = max_demand_point.strftime("%d/%m/%Y")
+
+
+# --- CÁLCULO DA CONTA ESTIMADA DE ENERGIA ---
+total_consumo_kwh = 0
+if not dfs["A"].empty and not dfs["B"].empty and not dfs["C"].empty:
+    total_consumo_kwh += dfs["A"][colunas["A"]["consumo"]].iloc[-1] if not dfs["A"].empty else 0
+    total_consumo_kwh += dfs["B"][colunas["B"]["consumo"]].iloc[-1] if not dfs["B"].empty else 0
+    total_consumo_kwh += dfs["C"][colunas["C"]["consumo"]].iloc[-1] if not dfs["C"].empty else 0
+    
+    st.markdown("---")
+    st.markdown("<h3>Análise de Custo</h3>", unsafe_allow_html=True)
+    
+    col_bandeira, col_maior_demanda, col_conta = st.columns([1, 1, 2])
+    
+    with col_bandeira:
+        bandeira_selecionada = st.selectbox(
+            "Selecione a Bandeira Tarifária:",
+            options=list(TARIFAS["BANDEIRAS"].keys()),
+            index=0
+        )
+    
+    custo_bandeira = TARIFAS["BANDEIRAS"][bandeira_selecionada]
+    
+    # Cálculo da conta
+    custo_base = total_consumo_kwh * (TARIFAS["TE"] + TARIFAS["TUSD"] + custo_bandeira)
+    impostos = custo_base * (TARIFAS["ICMS"] + TARIFAS["PIS"] + TARIFAS["COFINS"])
+    conta_estimada = custo_base + impostos
+    
+    
+    with col_maior_demanda:
+        st.markdown(f"""
+        <div style='
+            background-color: #2c3e50;
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 15px;
+        '>
+            <h3 style='color:white; text-align:center;'>Maior Demanda Histórica</h3>
+            <div style='
+                background-color: #34495e;
+                color: white;
+                padding: 15px;
+                border-radius: 10px;
+                text-align: center;
+                font-size: 20px;
+                font-weight: bold;
+                width: 100%;
+            '>
+                Dia: {dia_maior_demanda}
+                <br>
+                Valor: {maior_demanda_historico:.2f} W
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with col_conta:
+        st.markdown(f"""
+        <div style='
+            background-color: #2c3e50;
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 15px;
+        '>
+            <h3 style='color:white; text-align:center;'>Conta Estimada</h3>
+            <div style='
+                background-color: #34495e;
+                color: #2ecc71;
+                padding: 15px;
+                border-radius: 10px;
+                text-align: center;
+                font-size: 20px;
+                font-weight: bold;
+                width: 100%;
+            '>
+                Consumo Total: {total_consumo_kwh:.2f} kWh
+                <br>
+                Valor Estimado: R$ {conta_estimada:.2f}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 # --- GRÁFICOS DINÂMICOS ---
