@@ -564,7 +564,7 @@ with col9:
     visor_total("Demanda Máxima", demanda_maxima, "W", timestamp_ultimo_dado, limite_superior=DEMANDA_MAXIMA)
 
 st.markdown("---")
-st.markdown("<h3>Análise de Custo em Tempo Real</h3>", unsafe_allow_html=True)
+st.markdown("<h3>Análise de Custos</h3>", unsafe_allow_html=True)
 
 col_conta = st.columns(1)[0]
 with col_conta:
@@ -575,20 +575,9 @@ with col_conta:
         border-radius: 15px;
         margin-bottom: 15px;
     '>
-        <h3 style='color:white; text-align:center;'>Análise de Custos e Demanda</h3>
-        <div style='
-            background-color: #34495e;
-            color: #2ecc71;
-            padding: 15px;
-            border-radius: 10px;
-            text-align: center;
-            font-size: 20px;
-            font-weight: bold;
-            width: 100%;
-        '>
-            Consumo Acumulado: {consumo_total_para_calculo:.2f} kWh
+            Consumo: {consumo_total_para_calculo:.2f} kWh
             <br>
-            Valor Estimado (acumulado): R$ {conta_estimada_acumulada:.2f}
+            Valor estimado: R$ {conta_estimada_acumulada:.2f}
         </div>
         <div style='
             background-color: #34495e;
@@ -601,7 +590,7 @@ with col_conta:
             width: 100%;
             margin-top: 10px;
         '>
-            Maior Demanda Histórica: {st.session_state["max_demanda_historica"]:.2f} W
+            Maior demanda registrada: {st.session_state["max_demanda_historica"]:.2f} W
             <br>
             Dia da Ocorrência: {st.session_state["dia_max_demanda_historica"]}
         </div>
@@ -762,4 +751,5 @@ with st.expander("Log de alarmes"):
             st.error(erro)
     else:
         st.info("Nenhum alarme registrado.")
+
 
