@@ -282,7 +282,7 @@ if plotted:
         fig.update_layout(
             title="Tensão nas Fases",
             yaxis_title="Tensão (V)",
-            yaxis=dict(range=[0, 500])
+            yaxis=dict(range=[200, 250])
         )
     elif grafico_selecionado == "Corrente":
         fig.update_layout(title="Corrente nas Fases", yaxis_title="Corrente (A)")
@@ -307,3 +307,4 @@ if plotted:
     st.plotly_chart(fig, use_container_width=True)
 else:
     st.warning(f"Não há dados para exibir no gráfico de {grafico_selecionado}.")
+
