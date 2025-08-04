@@ -64,7 +64,7 @@ colunas = {
 def load_and_clean_csv(path):
     try:
         df = pd.read_csv(path)
-        df = df[df["Data"] == "01/008/2025"].copy()
+        df = df[df["Data"] == "01/08/2025"].copy()
         
         if df.empty:
             return pd.DataFrame()
@@ -567,3 +567,4 @@ with st.expander("Log de alarmes"):
             st.error(erro)
     else:
         st.info("Nenhum alarme registrado.")
+
