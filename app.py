@@ -12,7 +12,7 @@ PATHS = {
     "B": "Planilha_242_LAT - FASEB (3).csv",
     "C": "Planilha_242_LAT - FASEC (3).csv"
 }
-REFRESH_INTERVAL_MS = 1000
+REFRESH_INTERVAL_MS = 500
 
 # --- LIMITES DE OPERAÇÃO ---
 TENSÃO_MIN = 200.0     # Volts
@@ -457,12 +457,18 @@ if dia_escolhido == "Dia Atual":
 
     min_len_p_ativa = min(len(potencia_ativa_faseA), len(potencia_ativa_faseB), len(potencia_ativa_faseC))
     
+    demanda_maxima_dia_atual = 0.0
     if min_len_p_ativa >= demand_window:
         total_potencia_ativa_historico = [sum(p) for p in zip(potencia_ativa_faseA[:min_len_p_ativa], potencia_ativa_faseB[:min_len_p_ativa], potencia_ativa_faseC[:min_len_p_ativa])]
         total_series = pd.Series(total_potencia_ativa_historico)
-        demanda_maxima = total_series.rolling(window=demand_window).mean().max()
-    else:
-        demanda_maxima = 0.0
+        demanda_maxima_dia_atual = total_series.rolling(window=demand_window).mean().max()
+    
+    # Compara a demanda do dia atual com a histórica
+    if demanda_maxima_dia_atual > st.session_state["max_demanda_historica"]:
+        st.session_state["max_demanda_historica"] = demanda_maxima_dia_atual
+        st.session_state["dia_max_demanda_historica"] = st.session_state["dia_atual"].strftime('%d/%m/%Y')
+    
+    demanda_maxima = demanda_maxima_dia_atual
 else: # Dia Anterior
     df_A = dfs["A"][dfs["A"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
     df_B = dfs["B"][dfs["B"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
@@ -482,6 +488,7 @@ else: # Dia Anterior
             demanda_maxima = 0.0
     else:
         demanda_maxima = 0.0
+
 
 # --- CÁLCULO DA CONTA ESTIMADA DO DIA ATUAL EM TEMPO REAL ---
 total_consumo_kwh_realtime = sum(st.session_state["valores_A"]["potencia_ativa"]) / (1000 * 60) * 3 if st.session_state["valores_A"]["potencia_ativa"] else 0
@@ -503,45 +510,6 @@ with col9:
 
 st.markdown("---")
 st.markdown("<h3>Análise de Custo em Tempo Real</h3>", unsafe_allow_html=True)
-
-# --- FUNÇÃO PARA CALCULAR A MAIOR DEMANDA DA HISTÓRIA (sem cache para ser em tempo real) ---
-def calcular_maior_demanda_historica(dfs, colunas, demand_window):
-    max_demanda_historica = 0.0
-    dia_max_demanda_historica = "N/A"
-    
-    if not dfs["A"].empty and not dfs["B"].empty and not dfs["C"].empty:
-        all_timestamps_A = dfs["A"]["Timestamp"].dt.date.unique()
-        all_timestamps_B = dfs["B"]["Timestamp"].dt.date.unique()
-        all_timestamps_C = dfs["C"]["Timestamp"].dt.date.unique()
-        
-        all_dates = sorted(list(set(all_timestamps_A) | set(all_timestamps_B) | set(all_timestamps_C)))
-        
-        for date in all_dates:
-            df_A = dfs["A"][dfs["A"]["Timestamp"].dt.date == date]
-            df_B = dfs["B"][dfs["B"]["Timestamp"].dt.date == date]
-            df_C = dfs["C"][dfs["C"]["Timestamp"].dt.date == date]
-            
-            if not df_A.empty and not df_B.empty and not df_C.empty:
-                min_len_df = min(len(df_A), len(df_B), len(df_C))
-                
-                df_A = df_A.iloc[:min_len_df]
-                df_B = df_B.iloc[:min_len_df]
-                df_C = df_C.iloc[:min_len_df]
-                
-                if len(df_A) >= demand_window:
-                    total_potencia_ativa_historico = df_A[colunas["A"]["potencia_ativa"]].add(df_B[colunas["B"]["potencia_ativa"]], fill_value=0).add(df_C[colunas["C"]["potencia_ativa"]], fill_value=0)
-                    demanda_diaria = total_potencia_ativa_historico.rolling(window=demand_window).mean().max()
-                    
-                    if demanda_diaria > max_demanda_historica:
-                        max_demanda_historica = demanda_diaria
-                        dia_max_demanda_historica = date.strftime('%d/%m/%Y')
-                        
-    return max_demanda_historica, dia_max_demanda_historica
-
-# --- CHAMADA E ATUALIZAÇÃO DA DEMANDA MÁXIMA HISTÓRICA ---
-max_demanda_hist, dia_max_demanda_hist = calcular_maior_demanda_historica(dfs, colunas, demand_window)
-st.session_state["max_demanda_historica"] = max_demanda_hist
-st.session_state["dia_max_demanda_historica"] = dia_max_demanda_hist
 
 col_conta = st.columns(1)[0]
 with col_conta:
@@ -737,4 +705,3 @@ with st.expander("Log de alarmes"):
             st.error(erro)
     else:
         st.info("Nenhum alarme registrado.")
-
