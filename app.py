@@ -15,10 +15,10 @@ PATHS = {
 REFRESH_INTERVAL_MS = 500
 
 # --- LIMITES DE OPERAÇÃO ---
-TENSÃO_MIN = 200.0    # Volts
-TENSÃO_MAX = 250.0    # Volts
-CORRENTE_MAX = 50.0  # Amperes
-POTENCIA_APARENTE_MAX = 4500.0      # VA (por fase)
+TENSÃO_MIN = 200.0     # Volts
+TENSÃO_MAX = 250.0     # Volts
+CORRENTE_MAX = 50.0    # Amperes
+POTENCIA_APARENTE_MAX = 4500.0       # VA (por fase)
 POTENCIA_APARENTE_TOTAL_MAX = 12000.0 # VA (total)
 FREQUENCIA_MIN = 58.9 # Hz (para sistema 60Hz)
 FREQUENCIA_MAX = 62.0 # Hz (para sistema 60Hz)
@@ -132,6 +132,12 @@ if "grafico_selecionado" not in st.session_state:
 
 if "log_erros" not in st.session_state:
     st.session_state["log_erros"] = collections.deque(maxlen=10)
+
+# --- NOVO: Variáveis para a demanda máxima histórica ---
+if "max_demanda_historica" not in st.session_state:
+    st.session_state["max_demanda_historica"] = 0.0
+if "dia_max_demanda_historica" not in st.session_state:
+    st.session_state["dia_max_demanda_historica"] = ""
 
 
 # --- Layout com logo e título lado a lado ---
@@ -478,7 +484,6 @@ else: # Dia Anterior
     else:
         demanda_maxima = 0.0
 
-
 # --- CÁLCULO DA CONTA ESTIMADA DO DIA ATUAL EM TEMPO REAL ---
 total_consumo_kwh_realtime = sum(st.session_state["valores_A"]["potencia_ativa"]) / (1000 * 60) * 3 if st.session_state["valores_A"]["potencia_ativa"] else 0
 custo_bandeira_verde = TARIFAS["BANDEIRAS"]["Verde"]
@@ -500,6 +505,45 @@ with col9:
 st.markdown("---")
 st.markdown("<h3>Análise de Custo em Tempo Real</h3>", unsafe_allow_html=True)
 
+# --- FUNÇÃO PARA CALCULAR A MAIOR DEMANDA DA HISTÓRIA ---
+@st.cache_data
+def calcular_maior_demanda_historica(dfs, colunas, demand_window):
+    max_demanda_historica = 0.0
+    dia_max_demanda_historica = "N/A"
+    
+    if not dfs["A"].empty and not dfs["B"].empty and not dfs["C"].empty:
+        all_timestamps_A = dfs["A"]["Timestamp"].dt.date.unique()
+        all_timestamps_B = dfs["B"]["Timestamp"].dt.date.unique()
+        all_timestamps_C = dfs["C"]["Timestamp"].dt.date.unique()
+        
+        all_dates = sorted(list(set(all_timestamps_A) | set(all_timestamps_B) | set(all_timestamps_C)))
+        
+        for date in all_dates:
+            df_A = dfs["A"][dfs["A"]["Timestamp"].dt.date == date]
+            df_B = dfs["B"][dfs["B"]["Timestamp"].dt.date == date]
+            df_C = dfs["C"][dfs["C"]["Timestamp"].dt.date == date]
+            
+            if not df_A.empty and not df_B.empty and not df_C.empty:
+                min_len_df = min(len(df_A), len(df_B), len(df_C))
+                
+                df_A = df_A.iloc[:min_len_df]
+                df_B = df_B.iloc[:min_len_df]
+                df_C = df_C.iloc[:min_len_df]
+                
+                if len(df_A) >= demand_window:
+                    total_potencia_ativa_historico = df_A[colunas["A"]["potencia_ativa"]].add(df_B[colunas["B"]["potencia_ativa"]], fill_value=0).add(df_C[colunas["C"]["potencia_ativa"]], fill_value=0)
+                    demanda_diaria = total_potencia_ativa_historico.rolling(window=demand_window).mean().max()
+                    
+                    if demanda_diaria > max_demanda_historica:
+                        max_demanda_historica = demanda_diaria
+                        dia_max_demanda_historica = date.strftime('%d/%m/%Y')
+                        
+    return max_demanda_historica, dia_max_demanda_historica
+
+# --- CHAMADA E ATUALIZAÇÃO DA DEMANDA MÁXIMA HISTÓRICA ---
+st.session_state["max_demanda_historica"], st.session_state["dia_max_demanda_historica"] = calcular_maior_demanda_historica(dfs, colunas, demand_window)
+
+
 col_conta = st.columns(1)[0]
 with col_conta:
     st.markdown(f"""
@@ -509,7 +553,7 @@ with col_conta:
         border-radius: 15px;
         margin-bottom: 15px;
     '>
-        <h3 style='color:white; text-align:center;'>Conta Estimada do Dia Atual</h3>
+        <h3 style='color:white; text-align:center;'>Análise de Custos e Demanda</h3>
         <div style='
             background-color: #34495e;
             color: #2ecc71;
@@ -520,9 +564,24 @@ with col_conta:
             font-weight: bold;
             width: 100%;
         '>
-            Consumo Total: {total_consumo_kwh_realtime:.2f} kWh
+            Consumo Total (Dia Atual): {total_consumo_kwh_realtime:.2f} kWh
             <br>
-            Valor Estimado: R$ {conta_estimada_realtime:.2f}
+            Valor Estimado (Dia Atual): R$ {conta_estimada_realtime:.2f}
+        </div>
+        <div style='
+            background-color: #34495e;
+            color: #2ecc71;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 10px;
+        '>
+            Maior Demanda Histórica: {st.session_state["max_demanda_historica"]:.2f} W
+            <br>
+            Dia da Ocorrência: {st.session_state["dia_max_demanda_historica"]}
         </div>
     </div>
     """, unsafe_allow_html=True)
