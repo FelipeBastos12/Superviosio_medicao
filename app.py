@@ -738,13 +738,12 @@ if plotted:
         fig.update_layout(title="Fator de Potência Total", yaxis_title="Fator de Potência", yaxis=dict(range=[0.6, 1.0]))
 
     fig.update_layout(
-        xaxis_title="Data e Horário",
-        # Formato para mostrar dia/mês e hora:minuto
-        xaxis_tickformat='%d/%m %H:%M',
+        xaxis_title=f"Data: {dia_referencia.strftime('%d/%m/%Y')}",
+        xaxis_tickformat='%H:%M',
         xaxis=dict(
             tickmode='array',
             tickvals=[date_start + timedelta(hours=h) for h in range(25)],
-            ticktext=[f'{dia_referencia.strftime("%d/%m")} {h:02d}:00' for h in range(25)],
+            ticktext=[f'{h:02d}:00' for h in range(25)],
             range=[date_start, date_end],
             showgrid=True,
             gridcolor='rgba(128,128,128,0.2)'
