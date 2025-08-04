@@ -13,15 +13,17 @@ PATHS = {
 REFRESH_INTERVAL_MS = 500
 
 # --- NOMES DAS COLUNAS POR FASE ---
+# CORRIGIDO: Os nomes das colunas de Tensão foram corrigidos para remover o espaço extra.
+# O nome "Tensao_Fase_A" é o que está no cabeçalho do seu arquivo CSV.
 colunas = {
     "A": {
-        "tensao": "Tensao_Fase_ A",
+        "tensao": "Tensao_Fase_A",
         "corrente": "Corrente_Fase_A",
         "potencia": "Potencia_Ativa_Fase_A",
         "frequencia": "Frequencia_Fase_A"
     },
     "B": {
-        "tensao": "Tensao_Fase_ B",
+        "tensao": "Tensao_Fase_B",
         "corrente": "Corrente_Fase_B",
         "potencia": "Potencia_Ativa_Fase_B",
         "frequencia": "Frequencia_Fase_B"
@@ -37,18 +39,30 @@ colunas = {
 # --- LEITURA E LIMPEZA ---
 @st.cache_data
 def load_and_clean_csv(path):
-    df = pd.read_csv(path)
-    # Filtra só dados do dia 23/05/2025
-    df = df[df["Data"] == "23/05/2025"].copy()
-    for col in df.columns:
-        df[col] = df[col].astype(str).str.replace(",", ".", regex=False)
-        try:
-            df[col] = df[col].astype(float)
-        except ValueError:
-            pass
-    # Combina 'Data' e 'Horário' para criar um timestamp
-    df['Timestamp'] = pd.to_datetime(df['Data'] + ' ' + df['Horário'], format='%d/%m/%Y %H:%M:%S')
-    return df
+    try:
+        df = pd.read_csv(path)
+        # Filtra só dados do dia 23/05/2025
+        df = df[df["Data"] == "23/05/2025"].copy()
+        
+        # Se o DataFrame estiver vazio após a filtragem, retorna um DataFrame vazio
+        if df.empty:
+            return pd.DataFrame()
+            
+        for col in df.columns:
+            # Pula as colunas de data/hora para evitar erros de conversão
+            if col in ["Data", "Horário"]:
+                continue
+            df[col] = df[col].astype(str).str.replace(",", ".", regex=False)
+            try:
+                df[col] = df[col].astype(float)
+            except ValueError:
+                pass
+        # Combina 'Data' e 'Horário' para criar um timestamp
+        df['Timestamp'] = pd.to_datetime(df['Data'] + ' ' + df['Horário'], format='%d/%m/%Y %H:%M:%S')
+        return df
+    except FileNotFoundError:
+        st.error(f"Arquivo não encontrado: {path}")
+        return pd.DataFrame() # Retorna um DataFrame vazio em caso de erro
 
 dfs = {fase: load_and_clean_csv(path) for fase, path in PATHS.items()}
 
@@ -82,13 +96,21 @@ if dia_escolhido == "Dia Atual":
 
 # --- FUNÇÃO PARA PEGAR OS DADOS SEGUNDO O DIA SELECIONADO ---
 def get_dados(fase, dia):
-    df = dfs[fase]
+    df = dfs.get(fase, pd.DataFrame()) # Retorna DataFrame vazio se a fase não existir
+    
+    # CORRIGIDO: Adiciona uma verificação para retornar dados vazios se o df estiver vazio
+    if df.empty:
+        return {
+            "tensao": [], "corrente": [], "potencia": [], "timestamp": []
+        }
+
     if dia == "Dia Atual":
         idx = st.session_state[f"index_{fase}"]
         if idx >= len(df):
             st.session_state[f"index_{fase}"] = 0
             idx = 0
             st.success(f"Reiniciando dados da fase {fase}")
+        
         row = df.iloc[idx]
         st.session_state[f"index_{fase}"] += 1
 
@@ -151,17 +173,27 @@ valores_frequencia = {}
 
 for fase in ["A", "B", "C"]:
     df = dfs[fase]
+    
+    # Adiciona uma verificação de DataFrame vazio para evitar erros
+    if df.empty:
+        valores_tensao[fase] = 0.0
+        valores_corrente[fase] = 0.0
+        valores_potencia[fase] = 0.0
+        valores_frequencia[fase] = 0.0
+        continue
+    
     if dia_escolhido == "Dia Atual":
-        # Se os dados já estão no buffer de sessão, pega o último. Se não, usa o primeiro da planilha.
+        # CORRIGIDO: Adiciona uma verificação para evitar IndexError se a lista estiver vazia
         if st.session_state[f"valores_{fase}"]["timestamp"]:
             last_idx = len(st.session_state[f"valores_{fase}"]["timestamp"]) - 1
             tensao = st.session_state[f"valores_{fase}"]["tensao"][last_idx]
             corrente = st.session_state[f"valores_{fase}"]["corrente"][last_idx]
             potencia = st.session_state[f"valores_{fase}"]["potencia"][last_idx]
-            # Frequência não está no session state, pega do dataframe original
+            
             row_idx_original = st.session_state[f"index_{fase}"] - 1
             if row_idx_original < 0:
                 row_idx_original = 0
+            
             frequencia = df.iloc[row_idx_original].get(colunas[fase]["frequencia"], 0)
         else:
             # Caso o buffer esteja vazio, pega a primeira linha para evitar erro
@@ -183,10 +215,17 @@ for fase in ["A", "B", "C"]:
         valores_frequencia[fase] = float(frequencia)
 
     else:  # Dia Anterior pega o último valor para exibir no visor
-        valores_tensao[fase] = float(df[colunas[fase]["tensao"]].iloc[-1])
-        valores_corrente[fase] = float(df[colunas[fase]["corrente"]].iloc[-1])
-        valores_potencia[fase] = float(df[colunas[fase]["potencia"]].iloc[-1])
-        valores_frequencia[fase] = float(df[colunas[fase]["frequencia"]].iloc[-1])
+        # CORRIGIDO: Adiciona uma verificação para evitar IndexError
+        if not df.empty:
+            valores_tensao[fase] = float(df[colunas[fase]["tensao"]].iloc[-1])
+            valores_corrente[fase] = float(df[colunas[fase]["corrente"]].iloc[-1])
+            valores_potencia[fase] = float(df[colunas[fase]["potencia"]].iloc[-1])
+            valores_frequencia[fase] = float(df[colunas[fase]["frequencia"]].iloc[-1])
+        else:
+            valores_tensao[fase] = 0.0
+            valores_corrente[fase] = 0.0
+            valores_potencia[fase] = 0.0
+            valores_frequencia[fase] = 0.0
 
 # --- VISOR PERSONALIZADO ---
 def visor_fases(label, valores_por_fase, unidade, cor_fundo="#2c3e50"):
@@ -279,12 +318,19 @@ for fase in ["A", "B", "C"]:
         x_values = dados["timestamp"]
     else:
         # Usa todos os horários do dataframe completo
-        x_values = dfs[fase]["Timestamp"]
+        x_values = dfs[fase]["Timestamp"] if not dfs[fase].empty else []
+
+    # CORRIGIDO: Adiciona uma verificação para só tentar plotar se houver dados
+    if not dados[grafico_selecionado.lower().replace(" ", "").replace("ativa", "")]:
+        st.warning(f"Não há dados para a Fase {fase} no gráfico de {grafico_selecionado}.")
+        continue
+    
+    y_data = dados[grafico_selecionado.lower().replace(" ", "").replace("ativa", "")]
     
     if grafico_selecionado == "Tensão":
         fig.add_trace(go.Scatter(
             x=x_values,
-            y=dados["tensao"],
+            y=y_data,
             mode=modo,
             name=f"Fase {fase}",
             line=dict(color=cores[fase])
@@ -297,7 +343,7 @@ for fase in ["A", "B", "C"]:
     elif grafico_selecionado == "Corrente":
         fig.add_trace(go.Scatter(
             x=x_values,
-            y=dados["corrente"],
+            y=y_data,
             mode=modo,
             name=f"Fase {fase}",
             line=dict(color=cores[fase])
@@ -306,26 +352,30 @@ for fase in ["A", "B", "C"]:
     elif grafico_selecionado == "Potência Ativa":
         fig.add_trace(go.Scatter(
             x=x_values,
-            y=dados["potencia"],
+            y=y_data,
             mode=modo,
             name=f"Fase {fase}",
             line=dict(color=cores[fase])
         ))
         fig.update_layout(title="Potência Ativa nas Fases", yaxis_title="Potência Ativa (W)")
 
-fig.update_layout(
-    xaxis_title="Horário",
-    xaxis_tickformat='%H:%M',  # Formata o eixo X para mostrar horas e minutos
-    xaxis=dict(
-        tickmode='array',
-        # Define os ticks para as 24 horas, garantindo que o eixo X esteja completo
-        tickvals=[date_23_05 + timedelta(hours=h) for h in range(25)], 
-        ticktext=[f'{h:02d}:00' for h in range(25)],
-        range=[date_23_05, date_23_05 + timedelta(days=1)],
-        showgrid=True,
-        gridcolor='rgba(128,128,128,0.2)'
-    ),
-    height=450,
-    template="simple_white"
-)
-st.plotly_chart(fig, use_container_width=True)
+# CORRIGIDO: Só mostra o gráfico se ele tiver dados
+if fig.data:
+    fig.update_layout(
+        xaxis_title="Horário",
+        xaxis_tickformat='%H:%M',  # Formata o eixo X para mostrar horas e minutos
+        xaxis=dict(
+            tickmode='array',
+            # Define os ticks para as 24 horas, garantindo que o eixo X esteja completo
+            tickvals=[date_23_05 + timedelta(hours=h) for h in range(25)],
+            ticktext=[f'{h:02d}:00' for h in range(25)],
+            range=[date_23_05, date_23_05 + timedelta(days=1)],
+            showgrid=True,
+            gridcolor='rgba(128,128,128,0.2)'
+        ),
+        height=450,
+        template="simple_white"
+    )
+    st.plotly_chart(fig, use_container_width=True)
+else:
+    st.warning("Não há dados para exibir nos gráficos.")
