@@ -433,4 +433,29 @@ elif grafico_selecionado in ["Potência Aparente Total", "Fator de Potência Tot
         df_A_prev = dfs_raw["A"][dfs_raw["A"]['Timestamp'].dt.date == dia_escolhido]
         df_B_prev = dfs_raw["B"][dfs_raw["B"]['Timestamp'].dt.date == dia_escolhido]
         df_C_prev = dfs_raw["C"][dfs_raw["C"]['Timestamp'].dt.date == dia_escolhido]
-        if not df_A_prev.empty and not df_B_prev.empty and not df
+        if not df_A_prev.empty and not df_B_prev.empty and not df_C_prev.empty:
+            x_values = df_A_prev["Timestamp"]
+            p_ativa_total = df_A_prev[colunas["A"]["potencia_ativa"]].add(df_B_prev[colunas["B"]["potencia_ativa"]], fill_value=0).add(df_C_prev[colunas["C"]["potencia_ativa"]], fill_value=0)
+            p_reativa_total = df_A_prev[colunas["A"]["potencia_reativa"]].add(df_B_prev[colunas["B"]["potencia_reativa"]], fill_value=0).add(df_C_prev[colunas["C"]["potencia_reativa"]], fill_value=0)
+            if grafico_selecionado == "Potência Aparente Total": y_data = np.sqrt(p_ativa_total**2 + p_reativa_total**2)
+            elif grafico_selecionado == "Fator de Potência Total": y_data = p_ativa_total / np.sqrt(p_ativa_total**2 + p_reativa_total**2); y_data = y_data.fillna(0)
+            fig.add_trace(go.Scatter(x=x_values, y=y_data, mode='lines', name="Total", line=dict(color="#3498db"))); plotted = True
+
+if plotted:
+    title_text = f"{grafico_selecionado} - {dia_escolhido.strftime('%d/%m/%Y')}"
+    if grafico_selecionado == "Tensão": fig.update_layout(title=title_text, yaxis_title="Tensão (V)", yaxis=dict(range=[190, 250]))
+    elif grafico_selecionado == "Corrente": fig.update_layout(title=title_text, yaxis_title="Corrente (A)", yaxis=dict(range=[0, 300]))
+    elif grafico_selecionado == "Potência Aparente": fig.update_layout(title=title_text, yaxis_title="Potência Aparente (VA)")
+    elif grafico_selecionado == "Potência Aparente Total": fig.update_layout(title=title_text, yaxis_title="Potência Aparente (VA)", yaxis=dict(range=[0, 400000]))
+    elif grafico_selecionado == "Fator de Potência Total": fig.update_layout(title=title_text, yaxis_title="Fator de Potência", yaxis=dict(range=[0.6, 1.0]))
+    fig.update_layout(xaxis_title="Horário", xaxis_tickformat='%H:%M', xaxis=dict(tickmode='array', tickvals=[dia_do_grafico_timestamp + timedelta(hours=h) for h in range(25)], ticktext=[f'{h:02d}:00' for h in range(25)], range=[dia_do_grafico_timestamp, dia_do_grafico_timestamp + timedelta(days=1)], showgrid=True, gridcolor='rgba(128,128,128,0.2)'), height=450, template="simple_white")
+    st.plotly_chart(fig, use_container_width=True)
+else:
+    st.warning(f"Não há dados para exibir no gráfico de {grafico_selecionado} no dia {dia_escolhido.strftime('%d/%m/%Y')}.")
+
+with st.expander("Log de alarmes"):
+    if st.session_state["log_erros"]:
+        for erro in reversed(st.session_state["log_erros"]):
+            st.error(erro)
+    else:
+        st.info("Nenhum alarme registrado.")
