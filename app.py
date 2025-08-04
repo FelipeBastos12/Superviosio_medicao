@@ -65,9 +65,6 @@ colunas = {
 def load_and_clean_csv(path):
     try:
         df = pd.read_csv(path)
-        # O filtro inicial de data é removido aqui, pois a lógica de avanço de data
-        # será tratada pelo `session_state`.
-        # df = df[df["Data"] == "01/08/2025"].copy()
         
         if df.empty:
             return pd.DataFrame()
@@ -98,9 +95,12 @@ st_autorefresh(interval=REFRESH_INTERVAL_MS, limit=None, key="auto_refresh")
 # --- INICIALIZAÇÃO DE SESSION STATE ---
 # --- MUDANÇA: Adiciona as datas iniciais no session_state
 if "dia_anterior" not in st.session_state:
-    st.session_state["dia_anterior"] = datetime(2025, 8, 1).date()
-if "dia_atual" not in st.session_state:
-    st.session_state["dia_atual"] = datetime(2025, 8, 2).date()
+    if not dfs["A"].empty:
+        st.session_state["dia_anterior"] = dfs["A"]["Timestamp"].min().date()
+        st.session_state["dia_atual"] = st.session_state["dia_anterior"] + timedelta(days=1)
+    else:
+        st.session_state["dia_anterior"] = datetime.now().date()
+        st.session_state["dia_atual"] = datetime.now().date() + timedelta(days=1)
     
 for fase in ["A", "B", "C"]:
     if f"index_{fase}" not in st.session_state:
@@ -145,12 +145,14 @@ def atualizar_dados_dia_atual(fase, df):
             st.session_state["dia_anterior"] = st.session_state["dia_atual"]
             st.session_state["dia_atual"] += timedelta(days=1)
             # Re-filtra o dataframe para o novo dia
-            df_dia_atual = df[df["Timestamp"].dt.date == st.session_state["dia_atual"]]
-            # Se o novo dia não existir, para o ciclo e volta para o primeiro dia disponível no CSV
-            if df_dia_atual.empty:
+            df_dia_atual_prox = df[df["Timestamp"].dt.date == st.session_state["dia_atual"]]
+            # Se o novo dia não existir, volta para o primeiro dia disponível no CSV
+            if df_dia_atual_prox.empty:
                 st.session_state["dia_anterior"] = df["Timestamp"].min().date()
-                st.session_state["dia_atual"] = df["Timestamp"].min().date() + timedelta(days=1)
-                df_dia_atual = df[df["Timestamp"].dt.date == st.session_state["dia_atual"]]
+                st.session_state["dia_atual"] = st.session_state["dia_anterior"]
+                df_dia_atual_prox = df[df["Timestamp"].dt.date == st.session_state["dia_atual"]]
+                if df_dia_atual_prox.empty: # Caso o primeiro dia também esteja vazio
+                    return
 
         st.session_state[f"index_{fase}"] = 0
         st.session_state[f"valores_{fase}"]["tensao"] = []
@@ -218,27 +220,29 @@ for fase in ["A", "B", "C"]:
         potencia_ativa, potencia_reativa = 0.0, 0.0
     else:
         if dia_escolhido == "Dia Atual":
-            # --- MUDANÇA: Filtra o dataframe para o dia escolhido (Dia Atual)
             df_dia_escolhido = df[df["Timestamp"].dt.date == st.session_state["dia_atual"]]
             dados_sessao = st.session_state[f"valores_{fase}"]
-            if dados_sessao["timestamp"] and not df_dia_escolhido.empty:
+
+            # CORREÇÃO: Verifica se a lista de dados não está vazia antes de tentar acessar os índices
+            if dados_sessao["timestamp"]:
                 last_idx = len(dados_sessao["timestamp"]) - 1
                 tensao = dados_sessao["tensao"][last_idx]
                 corrente = dados_sessao["corrente"][last_idx]
                 potencia = dados_sessao["potencia"][last_idx]
                 potencia_ativa = dados_sessao["potencia_ativa"][last_idx]
                 potencia_reativa = dados_sessao["potencia_reativa"][last_idx]
-                # A row do dia atual pode não existir no dataframe completo, então usamos a do df_dia_escolhido
-                # O índice do session state corresponde ao índice no df_dia_atual.
-                row = df_dia_escolhido.iloc[st.session_state[f"index_{fase}"] - 1] 
-                frequencia = row.get(colunas[fase]["frequencia"], 0)
-                fator_potencia = row.get(colunas[fase]["fator_de_potencia"], 0)
-                consumo = row.get(colunas[fase]["consumo"], 0)
+                
+                if not df_dia_escolhido.empty and st.session_state[f"index_{fase}"] > 0:
+                    row = df_dia_escolhido.iloc[st.session_state[f"index_{fase}"] - 1]
+                    frequencia = row.get(colunas[fase]["frequencia"], 0)
+                    fator_potencia = row.get(colunas[fase]["fator_de_potencia"], 0)
+                    consumo = row.get(colunas[fase]["consumo"], 0)
+                else:
+                    frequencia, fator_potencia, consumo = 0.0, 0.0, 0.0
             else:
                 tensao, corrente, potencia, frequencia, fator_potencia, consumo = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
                 potencia_ativa, potencia_reativa = 0.0, 0.0
         else:  # Dia Anterior
-            # --- MUDANÇA: Filtra o dataframe para o dia anterior do session_state
             df_dia_escolhido = df[df["Timestamp"].dt.date == st.session_state["dia_anterior"]]
             if not df_dia_escolhido.empty:
                 row = df_dia_escolhido.iloc[-1]
