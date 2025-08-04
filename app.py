@@ -19,6 +19,10 @@ TENSÃO_MAX = 240.0  # Volts
 CORRENTE_MAX = 20.0  # Amperes
 POTENCIA_APARENTE_MAX = 4500.0  # VA (por fase)
 POTENCIA_APARENTE_TOTAL_MAX = 12000.0 # VA (total)
+FREQUENCIA_MIN = 59.5 # Hz (para sistema 60Hz)
+FREQUENCIA_MAX = 60.5 # Hz (para sistema 60Hz)
+FATOR_POTENCIA_MIN = 0.85 # Mínimo recomendado
+DEMANDA_MAXIMA = 10000.0 # Exemplo de limite de demanda máxima (W)
 
 # --- NOMES DAS COLUNAS POR FASE ---
 colunas = {
@@ -218,7 +222,7 @@ def visor_fases(label, valores_por_fase, unidade):
     cor_fundo_alerta = "#c0392b"
     cor_fundo_atual = cor_fundo_default
     
-    # Define as cores do texto com base nas regras do usuário
+    # Define as cores do texto e verifica alarmes
     cores_texto = {}
     for fase in ["A", "B", "C"]:
         if label == "Tensão":
@@ -230,11 +234,19 @@ def visor_fases(label, valores_por_fase, unidade):
         elif label == "Corrente":
             cores_texto[fase] = "#ffffff" # Branco
             if valores_por_fase[fase] > CORRENTE_MAX:
-                cor_fundo_atual = cor_fundo_alerta # Aciona o alarme de fundo
+                cor_fundo_atual = cor_fundo_alerta
         elif label == "Potência Aparente":
             cores_texto[fase] = "#ffffff" # Branco
             if valores_por_fase[fase] > POTENCIA_APARENTE_MAX:
-                cor_fundo_atual = cor_fundo_alerta # Aciona o alarme de fundo
+                cor_fundo_atual = cor_fundo_alerta
+        elif label == "Frequência":
+            cores_texto[fase] = "#ffffff" # Branco
+            if not (FREQUENCIA_MIN <= valores_por_fase[fase] <= FREQUENCIA_MAX):
+                cor_fundo_atual = cor_fundo_alerta
+        elif label == "Fator de Potência":
+            cores_texto[fase] = "#ffffff" # Branco
+            if valores_por_fase[fase] < FATOR_POTENCIA_MIN:
+                cor_fundo_atual = cor_fundo_alerta
         else:
             cores_texto[fase] = "#ffffff" # Branco padrão para outros visores
     
@@ -288,12 +300,18 @@ def visor_fases(label, valores_por_fase, unidade):
     """, unsafe_allow_html=True)
 
 # --- VISOR PERSONALIZADO PARA VALORES TOTAIS ---
-def visor_total(label, valor_total, unidade, limite_superior=None):
+def visor_total(label, valor_total, unidade, limite_superior=None, limite_inferior=None):
     cor_fundo_default = "#2c3e50"
     cor_fundo_alerta = "#c0392b"
     cor_fundo_atual = cor_fundo_default
     
-    if limite_superior and valor_total > limite_superior:
+    alarme_acionado = False
+    if limite_superior is not None and valor_total > limite_superior:
+        alarme_acionado = True
+    if limite_inferior is not None and valor_total < limite_inferior:
+        alarme_acionado = True
+    
+    if alarme_acionado:
         cor_fundo_atual = cor_fundo_alerta
 
     st.markdown(f"""
@@ -377,9 +395,9 @@ col7, col8, col9 = st.columns(3)
 with col7:
     visor_total("Potência Aparente Total", S_total_inst, "VA", limite_superior=POTENCIA_APARENTE_TOTAL_MAX)
 with col8:
-    visor_total("Fator de Potência Total", FP_total_inst, "")
+    visor_total("Fator de Potência Total", FP_total_inst, "", limite_inferior=FATOR_POTENCIA_MIN)
 with col9:
-    visor_total("Demanda Máxima", demanda_maxima, "W")
+    visor_total("Demanda Máxima", demanda_maxima, "W", limite_superior=DEMANDA_MAXIMA)
 
 
 # --- GRÁFICOS DINÂMICOS ---
