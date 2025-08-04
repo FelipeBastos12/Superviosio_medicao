@@ -227,16 +227,6 @@ def visor_fases(label, valores_por_fase, unidade):
 
     if label == "Potência Aparente" and any(v > POTENCIA_APARENTE_MAX for v in valores_por_fase.values()):
         cor_fundo_atual = cor_fundo_alerta
-
-    cores_texto = {}
-    for fase in ["A", "B", "C"]:
-        if label == "Tensão":
-            if TENSÃO_MIN <= valores_por_fase[fase] <= TENSÃO_MAX:
-                cores_texto[fase] = "#2ecc71" # Verde
-            else:
-                cores_texto[fase] = "#ffffff" # Branco para alerta de fundo
-        else:
-            cores_texto[fase] = "#ffffff" # Branco padrão para outros visores
             
     st.markdown(f"""
     <div style='
@@ -249,7 +239,7 @@ def visor_fases(label, valores_por_fase, unidade):
         <div style='display: flex; flex-direction: column; gap: 10px;'>
             <div style='
                 background-color: #34495e;
-                color: {cores_texto["A"]};
+                color: #ffffff;
                 padding: 15px;
                 border-radius: 10px;
                 text-align: center;
@@ -261,7 +251,7 @@ def visor_fases(label, valores_por_fase, unidade):
             </div>
             <div style='
                 background-color: #34495e;
-                color: {cores_texto["B"]};
+                color: #ffffff;
                 padding: 15px;
                 border-radius: 10px;
                 text-align: center;
@@ -273,7 +263,7 @@ def visor_fases(label, valores_por_fase, unidade):
             </div>
             <div style='
                 background-color: #34495e;
-                color: {cores_texto["C"]};
+                color: #ffffff;
                 padding: 15px;
                 border-radius: 10px;
                 text-align: center;
