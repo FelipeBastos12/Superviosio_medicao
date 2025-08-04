@@ -517,7 +517,7 @@ with col_left:
     st.button("Corrente", on_click=lambda: st.session_state.update(grafico_selecionado="Corrente"), use_container_width=True)
 
 with col_right:
-    st.button("Potência Aparente", on_click=lambda: st.session_state.update(grafico_selecionado="Potência Aparente"), use_container_width=True)
+    st.button("Potência Aparente", on_on_click=lambda: st.session_state.update(grafico_selecionado="Potência Aparente"), use_container_width=True)
     st.button("Potência Aparente Total", on_click=lambda: st.session_state.update(grafico_selecionado="Potência Aparente Total"), use_container_width=True)
     st.button("Fator de Potência Total", on_click=lambda: st.session_state.update(grafico_selecionado="Fator de Potência Total"), use_container_width=True)
 
