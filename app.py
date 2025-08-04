@@ -89,7 +89,6 @@ def atualizar_dados_dia_atual(fase, df):
     if df.empty:
         return
     
-    # Se o index chegar no final, reinicia o loop para não dar erro
     if st.session_state[f"index_{fase}"] >= len(df):
         st.session_state[f"index_{fase}"] = 0
     
@@ -252,10 +251,11 @@ for fase in ["A", "B", "C"]:
     else: # Dia Anterior
         df = dfs[fase]
         if not df.empty:
-            x_values = df["Timestamp"]
             y_key = grafico_key_map.get(grafico_selecionado)
             if y_key:
-                y_data = df[colunas[fase][y_key]]
+                # Adiciona None para quebrar a linha no final e evitar o loop
+                x_values = df["Timestamp"].tolist() + [None]
+                y_data = df[colunas[fase][y_key]].tolist() + [None]
                 modo = "lines"
                 plotted = True
             else:
