@@ -10,9 +10,9 @@ import collections
 # O ideal é que os arquivos Planilha_242_LAT contenham dados de 01/08, 02/08, etc.
 # Assumindo que você tem arquivos com essas datas.
 PATHS = {
-    "A": "Planilha_242_LAT - FASEA.csv",
-    "B": "Planilha_242_LAT - FASEB.csv",
-    "C": "Planilha_242_LAT - FASEC.csv"
+    "A": "Planilha_242_LAT - FASEA (3).csv",
+    "B": "Planilha_242_LAT - FASEB (3).csv",
+    "C": "Planilha_242_LAT - FASEC (3).csv"
 }
 REFRESH_INTERVAL_MS = 100 # Reduzido para 100ms para ver a mudança
 
@@ -469,3 +469,4 @@ with st.expander("Log de alarmes"):
             st.error(erro)
     else:
         st.info("Nenhum alarme registrado.")
+
