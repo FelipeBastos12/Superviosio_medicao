@@ -138,15 +138,31 @@ if "max_demanda_historica" not in st.session_state:
 if "dia_max_demanda_historica" not in st.session_state:
     st.session_state["dia_max_demanda_historica"] = ""
 if "consumo_acumulado" not in st.session_state:
-    st.session_state["consumo_acumulado"] = 0.0
+    # Definir o dia inicial para o cálculo do consumo acumulado
+    dia_inicial_consumo = datetime(2025, 8, 1).date()
+    consumo_inicial = 0.0
     
+    # Calcular o consumo total do dia inicial (01/08/2025)
+    df_dia_inicial_A = dfs["A"][dfs["A"]["Timestamp"].dt.date == dia_inicial_consumo]
+    df_dia_inicial_B = dfs["B"][dfs["B"]["Timestamp"].dt.date == dia_inicial_consumo]
+    df_dia_inicial_C = dfs["C"][dfs["C"]["Timestamp"].dt.date == dia_inicial_consumo]
+    
+    if not df_dia_inicial_A.empty and not df_dia_inicial_B.empty and not df_dia_inicial_C.empty:
+        consumo_inicial = df_dia_inicial_A['C (kWh)'].iloc[-1] + df_dia_inicial_B['C (kWh)'].iloc[-1] + df_dia_inicial_C['C (kWh)'].iloc[-1]
+    
+    st.session_state["consumo_acumulado"] = consumo_inicial
+    st.session_state["consumo_acumulado_temp"] = 0.0
+
 # --- Função para calcular o consumo diário de forma segura
-def calcular_consumo_diario(df):
-    if df.empty or 'C (kWh)' not in df.columns:
+def calcular_consumo_diario(df_A, df_B, df_C):
+    if df_A.empty or df_B.empty or df_C.empty or 'C (kWh)' not in df_A.columns:
         return 0.0
     
-    consumo_diario = df['C (kWh)'].iloc[-1] - df['C (kWh)'].iloc[0]
-    return consumo_diario
+    consumo_A = df_A['C (kWh)'].iloc[-1] - df_A['C (kWh)'].iloc[0]
+    consumo_B = df_B['C (kWh)'].iloc[-1] - df_B['C (kWh)'].iloc[0]
+    consumo_C = df_C['C (kWh)'].iloc[-1] - df_C['C (kWh)'].iloc[0]
+    
+    return consumo_A + consumo_B + consumo_C
 
 # --- Layout com logo e título lado a lado ---
 col_logo, col_titulo = st.columns([1, 5])
@@ -169,17 +185,31 @@ def atualizar_dados_dia_atual(fase, df):
         # AQUI É ONDE O DIA MUDA - FIM DA SIMULAÇÃO DO DIA ANTERIOR
         if fase == "C":
             # Calcula e adiciona o consumo do dia anterior ao acumulado
-            df_dia_anterior = dfs["A"][dfs["A"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
-            if not df_dia_anterior.empty and 'C (kWh)' in df_dia_anterior.columns:
-                consumo_do_dia_anterior = calcular_consumo_diario(df_dia_anterior)
-                st.session_state["consumo_acumulado"] += consumo_do_dia_anterior
-                
+            df_dia_anterior_A = dfs["A"][dfs["A"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
+            df_dia_anterior_B = dfs["B"][dfs["B"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
+            df_dia_anterior_C = dfs["C"][dfs["C"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
+
+            consumo_do_dia_anterior = calcular_consumo_diario(df_dia_anterior_A, df_dia_anterior_B, df_dia_anterior_C)
+            st.session_state["consumo_acumulado"] += consumo_do_dia_anterior
+            
             st.session_state["dia_anterior"] = st.session_state["dia_atual"]
             st.session_state["dia_atual"] += timedelta(days=1)
             df_dia_atual_prox = df[df["Timestamp"].dt.date == st.session_state["dia_atual"]]
             if df_dia_atual_prox.empty:
-                st.session_state["dia_anterior"] = df["Timestamp"].min().date()
-                st.session_state["dia_atual"] = st.session_state["dia_anterior"]
+                st.session_state["dia_anterior"] = dfs["A"]["Timestamp"].min().date()
+                st.session_state["dia_atual"] = st.session_state["dia_anterior"] + timedelta(days=1)
+                
+                # Reinicializar o consumo acumulado para o novo ciclo
+                st.session_state["consumo_acumulado"] = 0.0 
+                dia_inicial_consumo = dfs["A"]["Timestamp"].min().date()
+                df_dia_inicial_A = dfs["A"][dfs["A"]["Timestamp"].dt.date == dia_inicial_consumo]
+                df_dia_inicial_B = dfs["B"][dfs["B"]["Timestamp"].dt.date == dia_inicial_consumo]
+                df_dia_inicial_C = dfs["C"][dfs["C"]["Timestamp"].dt.date == dia_inicial_consumo]
+                
+                if not df_dia_inicial_A.empty and not df_dia_inicial_B.empty and not df_dia_inicial_C.empty:
+                    consumo_inicial = df_dia_inicial_A['C (kWh)'].iloc[-1] + df_dia_inicial_B['C (kWh)'].iloc[-1] + df_dia_inicial_C['C (kWh)'].iloc[-1]
+                st.session_state["consumo_acumulado"] = consumo_inicial
+                
                 df_dia_atual_prox = df[df["Timestamp"].dt.date == st.session_state["dia_atual"]]
                 if df_dia_atual_prox.empty:
                     return
@@ -491,7 +521,7 @@ if dia_escolhido == "Dia Atual":
     demanda_maxima = demanda_maxima_dia_atual
     
     # Adiciona o consumo do dia atual (em tempo real) ao consumo acumulado
-    consumo_dia_atual = st.session_state["valores_A"]["consumo"][-1] - st.session_state["valores_A"]["consumo"][0] if len(st.session_state["valores_A"]["consumo"]) > 1 else 0
+    consumo_dia_atual = sum(st.session_state["valores_A"]["consumo"][-1], st.session_state["valores_B"]["consumo"][-1], st.session_state["valores_C"]["consumo"][-1]) - sum(st.session_state["valores_A"]["consumo"][0], st.session_state["valores_B"]["consumo"][0], st.session_state["valores_C"]["consumo"][0]) if len(st.session_state["valores_A"]["consumo"]) > 1 else 0
     consumo_total_para_calculo = st.session_state["consumo_acumulado"] + consumo_dia_atual
 else: # Dia Anterior
     df_A = dfs["A"][dfs["A"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
@@ -513,8 +543,15 @@ else: # Dia Anterior
     else:
         demanda_maxima = 0.0
     
-    # Consumo total do dia anterior (já está no acumulado, então não precisa adicionar de novo)
-    consumo_total_para_calculo = st.session_state["consumo_acumulado"]
+    # Consumo total do dia anterior
+    df_dia_anterior_A = dfs["A"][dfs["A"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
+    df_dia_anterior_B = dfs["B"][dfs["B"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
+    df_dia_anterior_C = dfs["C"][dfs["C"]["Timestamp"].dt.date == st.session_state["dia_anterior"]]
+    
+    consumo_dia_anterior = calcular_consumo_diario(df_dia_anterior_A, df_dia_anterior_B, df_dia_anterior_C)
+
+    consumo_total_para_calculo = st.session_state["consumo_acumulado"] + consumo_dia_anterior
+
 
 # --- CÁLCULO DA CONTA ESTIMADA (AGORA ACUMULADA) ---
 custo_bandeira_verde = TARIFAS["BANDEIRAS"]["Verde"]
