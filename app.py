@@ -458,12 +458,8 @@ if min_len_p_ativa >= demand_window:
     demanda_maxima_realtime = total_series.rolling(window=demand_window).mean().max()
 
 
-# --- CÁLCULO DA CONTA ESTIMADA DO DIA ATUAL EM TEMPO REAL ---
-consumo_dia_atual_A = st.session_state["valores_A"]["consumo"][-1] if st.session_state["valores_A"]["consumo"] else 0
-consumo_dia_atual_B = st.session_state["valores_B"]["consumo"][-1] if st.session_state["valores_B"]["consumo"] else 0
-consumo_dia_atual_C = st.session_state["valores_C"]["consumo"][-1] if st.session_state["valores_C"]["consumo"] else 0
-
-total_consumo_kwh_realtime = consumo_dia_atual_A + consumo_dia_atual_B + consumo_dia_atual_C
+# --- CÁLCULO DA CONTA ESTIMADA DO DIA ATUAL EM TEMPO REAL (CORRIGIDO) ---
+total_consumo_kwh_realtime = valores_consumo["A"] + valores_consumo["B"] + valores_consumo["C"]
 
 custo_bandeira_verde = TARIFAS["BANDEIRAS"]["Verde"]
 custo_base_realtime = total_consumo_kwh_realtime * (TARIFAS["TE"] + TARIFAS["TUSD"] + custo_bandeira_verde)
