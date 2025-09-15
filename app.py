@@ -8,9 +8,9 @@ import collections
 
 # --- CONFIGURAÇÕES ---
 PATHS = {
-    "A": "Planilha_242_LAT - FASEA (3).csv",
-    "B": "Planilha_242_LAT - FASEB (3).csv",
-    "C": "Planilha_242_LAT - FASEC (3).csv"
+    "A": "Planilha_LAT - FASEA.csv",
+    "B": "Planilha_LAT - FASEB.csv",
+    "C": "Planilha_LAT - FASEC.csv"
 }
 REFRESH_INTERVAL_MS = 500
 
@@ -762,6 +762,7 @@ with st.expander("Log de alarmes"):
             st.error(erro)
     else:
         st.info("Nenhum alarme registrado.")
+
 
 
 
